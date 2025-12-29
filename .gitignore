@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+backend/.venv/
+
+# Node
+node_modules/
+frontend/dist/
+
+# PyInstaller
+backend/build/
+backend/dist/
+backend/*.spec
+backend/frontend_dist/
+
+# IDE
+.vscode/chrome-debug-profile/
+.vscode/edge-debug-profile/
+
+# macOS
+.DS_Store
+
+# Logs
+/tmp/*.log
+*.log
+
+# Build artifacts
+*.app
+*.dmg
+*.exe

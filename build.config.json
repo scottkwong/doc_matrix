@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "DocMatrix",
+    "displayName": "Doc Matrix",
+    "version": "0.1.0",
+    "identifier": "com.example.docmatrix",
+    "description": "A local desktop application with Flask backend and React frontend"
+  },
+  "build": {
+    "icon": "assets/icon.png",
+    "outputDir": "backend/dist",
+    "bundleFormat": "onedir"
+  },
+  "window": {
+    "width": 1000,
+    "height": 700,
+    "resizable": true,
+    "fullscreen": false
+  }
+}
+

@@ -1,0 +1,71 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Flask Backend",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "flask_app:create_app",
+        "FLASK_ENV": "development",
+        "FLASK_RUN_PORT": "5001"
+      },
+      "args": [
+        "run",
+        "--host=127.0.0.1",
+        "--port=5001",
+        "--debug"
+      ],
+      "jinja": true,
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/backend/.venv/bin/python"
+    },
+    {
+      "name": "Python: Desktop App",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python"
+    },
+    {
+      "name": "Chrome: Frontend",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMaps": true,
+      "userDataDir": "${workspaceFolder}/.vscode/chrome-debug-profile"
+    },
+    {
+      "name": "Edge: Frontend",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://127.0.0.1:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMaps": true,
+      "userDataDir": "${workspaceFolder}/.vscode/edge-debug-profile"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: Backend + Frontend",
+      "configurations": [
+        "Python: Flask Backend",
+        "Chrome: Frontend"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "Full Stack",
+        "order": 1
+      },
+      "stopAll": true
+    }
+  ]
+}
+
