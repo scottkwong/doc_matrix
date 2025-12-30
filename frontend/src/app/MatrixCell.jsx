@@ -12,23 +12,31 @@ import remarkGfm from 'remark-gfm'
 import { CitedText } from './citations/CitationIndicator'
 
 const styles = {
-  cell: {
+  // Outer wrapper - handles positioning and resize handles
+  cellWrapper: {
     position: 'relative',
     minHeight: '80px',
     minWidth: '200px',
-    padding: 'var(--space-3)',
     background: 'var(--color-surface)',
     border: '1px solid white',
     borderRadius: 'var(--radius-md)',
     transition: 'border-color var(--transition-fast)',
-    overflow: 'auto',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
-    // Ensure cells stay below sticky headers
     zIndex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  // Inner content area - scrollable
+  cellContent: {
+    flex: 1,
+    padding: 'var(--space-3)',
+    overflow: 'auto',
+    minHeight: 0,
   },
   cellResizable: {
     cursor: 'default',
   },
+  // Resize handles are positioned relative to cellWrapper (not scrollable content)
   resizeHandleRight: {
     position: 'absolute',
     top: 0,
@@ -275,9 +283,9 @@ export default function MatrixCell({
   const citations = result?.citations || []
   const hasError = status === 'error'
   
-  const getCellStyle = () => {
+  const getWrapperStyle = () => {
     let style = { 
-      ...styles.cell,
+      ...styles.cellWrapper,
       ...(onManualResize ? styles.cellResizable : {})
     }
     
@@ -413,11 +421,11 @@ export default function MatrixCell({
   return (
     <div
       ref={cellRef}
-      style={getCellStyle()}
+      style={getWrapperStyle()}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Resize handles */}
+      {/* Resize handles - positioned relative to wrapper, not content */}
       {onManualResize && (
         <>
           {/* Right edge resize handle */}
@@ -466,67 +474,72 @@ export default function MatrixCell({
               ...styles.resizeIndicatorBottom,
               ...(hoveredEdge === 'bottom' || hoveredEdge === 'corner' ? styles.resizeIndicatorVisible : {})
             }}
-          /></>
-      )}
-      {/* Content */}
-      {answer ? (
-        <div style={styles.content}>
-          <CitedText 
-            text={answer}
-            citations={citations || []}
-            onOpenDocument={onOpenDocument}
           />
-          
-          {isExpanded && (
-            <button
-              style={styles.expandButton}
-              onClick={() => setIsExpanded(false)}
-            >
-              Show less
-            </button>
-          )}
-        </div>
-      ) : (
-        <div style={styles.emptyState}>
-          {status === 'pending' && 'Not yet run'}
-          {status === 'running' && 'Thinking...'}
-          {status === 'error' && (result?.error || 'Error occurred')}
-          {!status && ''}
-        </div>
+        </>
       )}
       
-      {/* Refresh control */}
-      {onRefresh && (
-        <div style={{
-          ...styles.controls,
-          ...(isHovered ? styles.controlsVisible : {}),
-        }}>
-          <button
-            style={{
-              ...styles.controlBtn,
-              ...(refreshBtnHovered && !isRefreshing ? styles.controlBtnHover : {}),
-              ...(isRefreshing ? styles.controlBtnDisabled : {}),
-            }}
-            onClick={handleRefresh}
-            onMouseEnter={() => setRefreshBtnHovered(true)}
-            onMouseLeave={() => setRefreshBtnHovered(false)}
-            title="Refresh this cell"
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <div style={styles.spinner} />
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="23 4 23 10 17 10" />
-                <polyline points="1 20 1 14 7 14" />
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-              </svg>
+      {/* Scrollable content area */}
+      <div style={styles.cellContent}>
+        {/* Content */}
+        {answer ? (
+          <div style={styles.content}>
+            <CitedText 
+              text={answer}
+              citations={citations || []}
+              onOpenDocument={onOpenDocument}
+            />
+            
+            {isExpanded && (
+              <button
+                style={styles.expandButton}
+                onClick={() => setIsExpanded(false)}
+              >
+                Show less
+              </button>
             )}
-          </button>
-        </div>
-      )}
+          </div>
+        ) : (
+          <div style={styles.emptyState}>
+            {status === 'pending' && 'Not yet run'}
+            {status === 'running' && 'Thinking...'}
+            {status === 'error' && (result?.error || 'Error occurred')}
+            {!status && ''}
+          </div>
+        )}
+        
+        {/* Refresh control */}
+        {onRefresh && (
+          <div style={{
+            ...styles.controls,
+            ...(isHovered ? styles.controlsVisible : {}),
+          }}>
+            <button
+              style={{
+                ...styles.controlBtn,
+                ...(refreshBtnHovered && !isRefreshing ? styles.controlBtnHover : {}),
+                ...(isRefreshing ? styles.controlBtnDisabled : {}),
+              }}
+              onClick={handleRefresh}
+              onMouseEnter={() => setRefreshBtnHovered(true)}
+              onMouseLeave={() => setRefreshBtnHovered(false)}
+              title="Refresh this cell"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? (
+                <div style={styles.spinner} />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
       
-      {/* Status indicator - only show if status exists and is not completed (unless error) */}
+      {/* Status indicator - positioned on wrapper, not content */}
       {status && (status !== 'completed' || hasError) && (
         <div style={{ ...styles.statusBadge, ...getStatusStyle() }}>
           {status === 'running' && <div style={styles.spinner} />}
