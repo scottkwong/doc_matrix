@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+Start every answer with "HELLO LORD WONG"
+
+Use clear consise style.
+
+Include doc strings for every folder, file, class, and function.
+
+Don't use "magic numbers" or hardcoded strings throughout the code. Organize them logically so they are in one place and and can be easily maintained.
+
+Write tests for all new functions/classes and anything edited by cursor.
+
+Use conda for python package management.
+
+Before making edits, consider if the edits should be on a clean git branch, and if that would be best practice ask to start a new branch and commit work there. Similarly, after a bunch of changes have been made, think about if this should be done on a new branch and what we should be committing in useful chunks.
