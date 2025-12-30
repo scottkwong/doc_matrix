@@ -19,9 +19,9 @@ import MatrixCell from './MatrixCell'
 
 // Fixed dimensions for consistent sizing
 const ROW_HEADER_WIDTH = 220
-const HEADER_ROW_HEIGHT = 80
-const CELL_MIN_WIDTH = 200
-const CELL_MIN_HEIGHT = 80
+const HEADER_ROW_HEIGHT = 100
+const CELL_WIDTH = 250
+const CELL_HEIGHT = 120
 const GAP = 8
 
 const styles = {
@@ -165,8 +165,8 @@ const styles = {
     position: 'relative',
   },
   rowHeadersScroll: {
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: '1fr',
     gap: `${GAP}px`,
   },
   rowHeader: {
@@ -344,8 +344,9 @@ export default function MatrixView({
   const rowHeadersRef = useRef(null)
   const cellsRef = useRef(null)
   
-  // Track actual row heights for synchronization
-  const [rowHeights, setRowHeights] = useState({})
+  // Track column widths and row heights (shared between headers and cells)
+  const [columnWidthsState, setColumnWidthsState] = useState({})
+  const [rowHeightsState, setRowHeightsState] = useState({})
 
   // Synchronized scrolling: when cells scroll, update headers
   const handleCellsScroll = useCallback((e) => {
@@ -357,42 +358,16 @@ export default function MatrixView({
       rowHeadersRef.current.scrollTop = scrollTop
     }
   }, [])
-
-  // Measure row heights from the cells container and apply to row headers
-  useEffect(() => {
-    if (!cellsRef.current) return
-    
-    const measureHeights = () => {
-      const cellsGrid = cellsRef.current?.querySelector('[data-cells-grid]')
-      if (!cellsGrid) return
-      
-      const rows = cellsGrid.children
-      const heights = {}
-      
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i]
-        if (row.getBoundingClientRect) {
-          heights[i] = row.getBoundingClientRect().height
-        }
-      }
-      
-      setRowHeights(heights)
+  
+  // Handle resize from cells
+  const handleCellResize = useCallback((rowIndex, columnId, width, height) => {
+    if (width && columnId) {
+      setColumnWidthsState(prev => ({ ...prev, [columnId]: width }))
     }
-    
-    // Measure after render
-    const timer = setTimeout(measureHeights, 100)
-    
-    // Re-measure on resize
-    const observer = new ResizeObserver(measureHeights)
-    if (cellsRef.current) {
-      observer.observe(cellsRef.current)
+    if (height && rowIndex !== undefined) {
+      setRowHeightsState(prev => ({ ...prev, [rowIndex]: height }))
     }
-    
-    return () => {
-      clearTimeout(timer)
-      observer.disconnect()
-    }
-  }, [documents, columns, results])
+  }, [])
 
   const getCellResult = (filename, columnId) => {
     return results[`${filename}:${columnId}`]
@@ -511,17 +486,27 @@ export default function MatrixView({
 
   // Calculate column widths (same for headers and cells)
   const columnWidths = useMemo(() => {
-    return columns.map(() => CELL_MIN_WIDTH)
-  }, [columns])
+    return columns.map(col => columnWidthsState[col.id] || CELL_WIDTH)
+  }, [columns, columnWidthsState])
   
-  // Grid template for cells
+  // Calculate row heights (same for row headers and cells)
+  const rowHeights = useMemo(() => {
+    const heights = documents.map((_, i) => rowHeightsState[i] || CELL_HEIGHT)
+    heights.push(rowHeightsState['summary'] || CELL_HEIGHT) // summary row
+    return heights
+  }, [documents, rowHeightsState])
+  
+  // Grid template for columns (used in both headers and cells)
   const gridTemplateColumns = useMemo(() => {
     const colWidths = columnWidths.map(w => `${w}px`).join(' ')
-    return `${colWidths} ${CELL_MIN_WIDTH}px 160px` // + summary + add button space
-  }, [columnWidths])
-
-  // Total row count (documents + summary row)
-  const totalRows = documents.length + 1
+    const summaryWidth = columnWidthsState['summary'] || CELL_WIDTH
+    return `${colWidths} ${summaryWidth}px 160px` // + summary + add button space
+  }, [columnWidths, columnWidthsState])
+  
+  // Grid template for rows (used in both row headers and cells)
+  const gridTemplateRows = useMemo(() => {
+    return rowHeights.map(h => `${h}px`).join(' ')
+  }, [rowHeights])
 
   if (documents.length === 0) {
     return (
@@ -666,7 +651,7 @@ export default function MatrixView({
               style={{
                 ...styles.columnHeader, 
                 ...styles.summaryColumnHeader,
-                width: `${CELL_MIN_WIDTH}px`,
+                width: `${columnWidthsState['summary'] || CELL_WIDTH}px`,
                 height: `${HEADER_ROW_HEIGHT - GAP}px`,
               }}
             >
@@ -698,13 +683,12 @@ export default function MatrixView({
           style={styles.rowHeadersContainer}
           ref={rowHeadersRef}
         >
-          <div style={styles.rowHeadersScroll}>
+          <div style={{ ...styles.rowHeadersScroll, gridTemplateRows }}>
             {documents.map((doc, rowIndex) => (
               <div 
                 key={doc.name}
                 style={{
                   ...styles.rowHeader,
-                  height: rowHeights[rowIndex] ? `${rowHeights[rowIndex]}px` : `${CELL_MIN_HEIGHT}px`,
                   zIndex: openDocMenu === doc.name ? 1000 : 1,
                 }}
               >
@@ -803,7 +787,6 @@ export default function MatrixView({
               style={{
                 ...styles.rowHeader, 
                 ...styles.summaryRowHeader,
-                height: rowHeights[documents.length] ? `${rowHeights[documents.length]}px` : `${CELL_MIN_HEIGHT}px`,
               }}
             >
               <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -822,7 +805,7 @@ export default function MatrixView({
           onScroll={handleCellsScroll}
         >
           <div 
-            style={{ ...styles.cellsGrid, gridTemplateColumns }}
+            style={{ ...styles.cellsGrid, gridTemplateColumns, gridTemplateRows }}
             data-cells-grid
           >
             {/* Document rows */}
@@ -835,6 +818,7 @@ export default function MatrixView({
                     onRefresh={() => onRefreshCell(doc.name, column.id)}
                     onOpenDocument={onOpenDocument}
                     isRefreshing={refreshingCells[`${doc.name}:${column.id}`]}
+                    onManualResize={(width, height) => handleCellResize(rowIndex, column.id, width, height)}
                   />
                 ))}
                 
@@ -843,6 +827,7 @@ export default function MatrixView({
                   result={rowSummaries[doc.name]}
                   isSummary
                   onOpenDocument={onOpenDocument}
+                  onManualResize={(width, height) => handleCellResize(rowIndex, 'summary', width, height)}
                 />
                 
                 {/* Spacer for add column */}
@@ -852,12 +837,13 @@ export default function MatrixView({
             
             {/* Summary row */}
             <div style={{ display: 'contents' }}>
-              {columns.map((column) => (
+              {columns.map((column, colIndex) => (
                 <MatrixCell
                   key={`summary:${column.id}`}
                   result={columnSummaries[column.id]}
                   isSummary
                   onOpenDocument={onOpenDocument}
+                  onManualResize={(width, height) => handleCellResize('summary', column.id, width, height)}
                 />
               ))}
               
@@ -866,6 +852,7 @@ export default function MatrixView({
                 result={overallSummary}
                 isOverall
                 onOpenDocument={onOpenDocument}
+                onManualResize={(width, height) => handleCellResize('summary', 'summary', width, height)}
               />
               
               {/* Spacer for add column */}
