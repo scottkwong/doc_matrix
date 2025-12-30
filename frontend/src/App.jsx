@@ -11,6 +11,7 @@ import { useNative } from './shell/useNative'
 import Header from './app/Header'
 import MatrixView from './app/MatrixView'
 import ChatPanel from './app/ChatPanel'
+import Dialog from './app/Dialog'
 
 const styles = {
   app: {
@@ -119,6 +120,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([])
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
+  const [folderPathDialogOpen, setFolderPathDialogOpen] = useState(false)
   
   const { get, post, apiCall } = useApi()
   const { chooseFolder } = useNative()
@@ -219,23 +221,8 @@ export default function App() {
           console.log('✅ Folder changed successfully')
         }
       } else {
-        // Browser fallback: prompt for a path
-        const entered = window.prompt('Enter a folder path to use as root:', root || '')
-        if (entered) {
-          try {
-            await post('/root', { root: entered })
-            const rootData = await get('/root')
-            setRoot(rootData.root || '')
-            const projectsData = await get('/projects')
-            setProjects(projectsData.projects || [])
-            setCurrentProject(null)
-            setProjectData(null)
-            console.log('✅ Folder changed successfully (browser prompt)')
-          } catch (error) {
-            console.error('❌ Failed to change folder (prompt):', error)
-            alert(`Failed to change folder: ${error.message}`)
-          }
-        }
+        // Browser fallback: use custom dialog for path input
+        setFolderPathDialogOpen(true)
       }
       return
     }
@@ -258,6 +245,30 @@ export default function App() {
       alert(`Failed to change folder: ${error.message}`)
     }
   }, [chooseFolder, root, get, post])
+  
+  // Folder path dialog handlers
+  const handleFolderPathSubmit = useCallback(async (path) => {
+    setFolderPathDialogOpen(false)
+    if (path && path.trim()) {
+      try {
+        await post('/root', { root: path.trim() })
+        const rootData = await get('/root')
+        setRoot(rootData.root || '')
+        const projectsData = await get('/projects')
+        setProjects(projectsData.projects || [])
+        setCurrentProject(null)
+        setProjectData(null)
+        console.log('✅ Folder changed successfully (dialog)')
+      } catch (error) {
+        console.error('❌ Failed to change folder (dialog):', error)
+        alert(`Failed to change folder: ${error.message}`)
+      }
+    }
+  }, [post, get])
+  
+  const handleFolderPathCancel = useCallback(() => {
+    setFolderPathDialogOpen(false)
+  }, [])
   
   // Project management
   const handleSelectProject = useCallback((projectName) => {
@@ -802,6 +813,19 @@ export default function App() {
           onOpenDocument={handleOpenDocument}
         />
       </main>
+      
+      {/* Folder path input dialog (browser fallback) */}
+      <Dialog
+        isOpen={folderPathDialogOpen}
+        type="prompt"
+        title="Enter Folder Path"
+        message="Enter the full path to the folder you want to use:"
+        defaultValue={root}
+        onConfirm={handleFolderPathSubmit}
+        onClose={handleFolderPathCancel}
+        confirmText="Set Folder"
+        cancelText="Cancel"
+      />
     </div>
   )
 }
