@@ -28,23 +28,14 @@ class TestApiKeyValidation:
             mock_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
             
-            # Import and test the validation logic
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    "https://openrouter.ai/api/v1/models",
-                    headers={
-                        "Authorization": "Bearer sk-or-v1-test-key",
-                        "HTTP-Referer": "https://docmatrix.local",
-                        "X-Title": "Doc Matrix",
-                    },
-                    timeout=10.0,
-                )
-                assert response.status_code == 200
+            # Test the actual LLMService method
+            result = await LLMService.validate_api_key("sk-or-v1-test-key")
+            assert result["valid"] is True
+            assert "error" not in result
 
     @pytest.mark.asyncio
     async def test_validate_invalid_key(self):
-        """Test validation with an invalid API key."""
+        """Test validation with an invalid API key (401)."""
         mock_response = MagicMock()
         mock_response.status_code = 401
         
@@ -55,18 +46,45 @@ class TestApiKeyValidation:
             mock_instance.get = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
             
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    "https://openrouter.ai/api/v1/models",
-                    headers={
-                        "Authorization": "Bearer invalid-key",
-                        "HTTP-Referer": "https://docmatrix.local",
-                        "X-Title": "Doc Matrix",
-                    },
-                    timeout=10.0,
-                )
-                assert response.status_code == 401
+            # Test the actual LLMService method
+            result = await LLMService.validate_api_key("invalid-key")
+            assert result["valid"] is False
+            assert result["error"] == "Invalid API key"
+    
+    @pytest.mark.asyncio
+    async def test_validate_forbidden_key(self):
+        """Test validation with a key that lacks permissions (403)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 403
+        
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.__aexit__.return_value = None
+            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_instance
+            
+            # Test the actual LLMService method
+            result = await LLMService.validate_api_key("sk-or-v1-no-perms")
+            assert result["valid"] is False
+            assert result["error"] == "API key does not have permission"
+    
+    @pytest.mark.asyncio
+    async def test_validate_timeout(self):
+        """Test validation when request times out."""
+        with patch('httpx.AsyncClient') as mock_client:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__.return_value = mock_instance
+            mock_instance.__aexit__.return_value = None
+            mock_instance.get = AsyncMock(
+                side_effect=__import__('httpx').TimeoutException("timeout")
+            )
+            mock_client.return_value = mock_instance
+            
+            # Test the actual LLMService method
+            result = await LLMService.validate_api_key("sk-or-v1-test-key")
+            assert result["valid"] is False
+            assert "timed out" in result["error"].lower()
 
     def test_llm_service_custom_api_key(self):
         """Test that LLMService accepts custom API key."""
@@ -82,31 +100,6 @@ class TestApiKeyValidation:
         # Should use the config key
         from app.config import config
         assert service.api_key == config.openrouter_api_key
-
-    def test_obfuscate_key(self):
-        """Test key obfuscation logic."""
-        # This tests the logic from ApiKeySelector.jsx
-        def obfuscate_key(key: str) -> str:
-            """Python version of the obfuscate function."""
-            if not key or len(key) < 8:
-                return '*...*'
-            first4 = key[:4]
-            last4 = key[-4:]
-            return f"{first4}*...*{last4}"
-        
-        # Test normal key
-        key = "sk-or-v1-0123456789abcdef"
-        obfuscated = obfuscate_key(key)
-        assert obfuscated == "sk-o*...*cdef"
-        
-        # Test short key
-        short_key = "abc"
-        assert obfuscate_key(short_key) == '*...*'
-        
-        # Test exact 8 char key
-        eight_char = "12345678"
-        obfuscated_8 = obfuscate_key(eight_char)
-        assert obfuscated_8 == "1234*...*5678"
 
 
 if __name__ == "__main__":

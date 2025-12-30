@@ -118,53 +118,8 @@ def create_api_routes(state: AppState) -> Blueprint:
                 "error": "API key is required"
             }), 400
         
-        # Try to validate the key by making a simple API call
-        async def validate_key():
-            """Validate key by checking key info endpoint."""
-            import httpx
-            try:
-                async with httpx.AsyncClient() as client:
-                    # Use /api/v1/key endpoint which requires valid auth
-                    response = await client.get(
-                        "https://openrouter.ai/api/v1/key",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        timeout=10.0,
-                    )
-                    
-                    if response.status_code == 200:
-                        # Key is valid - response contains key details
-                        return {"valid": True}
-                    elif response.status_code == 401:
-                        return {
-                            "valid": False,
-                            "error": "Invalid API key"
-                        }
-                    elif response.status_code == 403:
-                        return {
-                            "valid": False,
-                            "error": "API key does not have permission"
-                        }
-                    else:
-                        return {
-                            "valid": False,
-                            "error": f"Validation failed: HTTP {response.status_code}"
-                        }
-            except httpx.TimeoutException:
-                return {
-                    "valid": False,
-                    "error": "Request timed out"
-                }
-            except Exception as e:
-                return {
-                    "valid": False,
-                    "error": f"Validation error: {str(e)}"
-                }
-        
         try:
-            result = run_async(validate_key())
+            result = run_async(LLMService.validate_api_key(api_key))
             status_code = 200 if result.get("valid") else 400
             return jsonify(result), status_code
         except Exception as e:
