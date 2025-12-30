@@ -69,28 +69,7 @@ echo ""
 # Start backend
 echo -e "${BLUE}[Backend]${NC} Starting Flask server on http://127.0.0.1:5001"
 cd "$BACKEND_DIR"
-FLASK_RUN_PORT=5001 python -c "
-from app.api import create_api_routes
-from app.state import AppState
-from app.logging_config import setup_logging
-from localwebapp.server import create_flask_app
-from pathlib import Path
-import logging
-
-# Initialize logging first
-setup_logging(log_level='INFO')
-logger = logging.getLogger(__name__)
-logger.info('🚀 Doc Matrix development server starting...')
-
-# Create app with new modular structure
-state = AppState.load(default_root=Path.home())
-logger.info(f'📁 Current root: {state.root}')
-api_blueprint = create_api_routes(state)
-static_root = Path('../frontend/dist').resolve()
-app = create_flask_app(static_root, api_blueprint)
-logger.info('✅ Flask app initialized')
-app.run(host='127.0.0.1', port=5001, debug=True)
-" > /tmp/docmatrix_backend.log 2>&1 &
+python run_dev.py > /tmp/docmatrix_backend.log 2>&1 &
 BACKEND_PID=$!
 
 sleep 2
