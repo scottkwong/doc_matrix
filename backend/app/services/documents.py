@@ -14,7 +14,9 @@ from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ..config import config
 from .storage import StorageManager
+from .position_mapper import PositionMapper
 
 try:
     import tiktoken
@@ -40,6 +42,7 @@ class DocumentProcessor:
             storage: Storage manager instance.
         """
         self.storage = storage
+        self.position_mapper = PositionMapper(storage)
         # Initialize tiktoken encoder for token counting (using cl100k_base for GPT-4 models)
         if TIKTOKEN_AVAILABLE:
             try:
@@ -86,6 +89,11 @@ class DocumentProcessor:
         result = extractor(doc_path)
         result["mtime"] = current_mtime
         result["filename"] = filename
+        
+        # Add extraction metadata
+        ext = doc_path.suffix.lower()
+        result["extraction_method"] = self._get_extraction_method(ext)
+        result["extraction_version"] = self._get_extraction_version(ext)
         
         # Count tokens
         result["token_count"] = self._count_tokens(result.get("text", ""))
@@ -212,7 +220,7 @@ class DocumentProcessor:
             path: Path to the PDF file.
             
         Returns:
-            Extraction result with text per page.
+            Extraction result with text per page and position mappings.
         """
         try:
             from PyPDF2 import PdfReader
@@ -240,11 +248,30 @@ class DocumentProcessor:
         
         combined_text = "\n".join(full_text)
         
+        # Generate position mappings for citation synchronization
+        position_mappings = self.position_mapper.create_mapping_for_pdf(
+            path.name,
+            pages,
+            combined_text
+        )
+        
+        # Convert mappings to dict format for JSON serialization
+        mappings_data = [
+            {
+                "text_char": m.text_char,
+                "pdf_page": m.pdf_page,
+                "pdf_bbox": m.pdf_bbox,
+                "search_text": m.search_text,
+            }
+            for m in position_mappings
+        ]
+        
         return {
             "text": combined_text,
             "pages": pages,
             "char_count": len(combined_text),
             "page_count": len(pages),
+            "position_mappings": mappings_data,
         }
     
     def _extract_docx(self, path: Path) -> Dict[str, Any]:
@@ -379,6 +406,35 @@ class DocumentProcessor:
         else:
             # Rough estimate: ~4 characters per token
             return len(text) // 4
+    
+    def _get_extraction_method(self, extension: str) -> str:
+        """Get the extraction method name for a file extension.
+        
+        Args:
+            extension: File extension (including dot).
+            
+        Returns:
+            Extraction method name.
+        """
+        ext_type = extension.lstrip('.').lower()
+        return config.default_extraction_methods.get(ext_type, "unknown")
+    
+    def _get_extraction_version(self, extension: str) -> str:
+        """Get the extraction version for a file extension.
+        
+        Args:
+            extension: File extension (including dot).
+            
+        Returns:
+            Extraction version string.
+        """
+        ext_type = extension.lstrip('.').lower()
+        method = self._get_extraction_method(extension)
+        
+        methods = config.extraction_methods.get(ext_type, {})
+        method_info = methods.get(method, {})
+        
+        return method_info.get("version", "1.0")
     
     def find_text_location(
         self, 

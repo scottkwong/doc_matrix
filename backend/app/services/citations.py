@@ -27,6 +27,9 @@ class Citation:
         char_start: Starting character position in the document.
         char_end: Ending character position in the document.
         context: Surrounding text for display.
+        extraction_version: Version of extraction this citation references.
+        extraction_method: Method used for extraction.
+        pdf_mapping: Optional PDF coordinates for direct navigation.
     """
     
     id: str
@@ -36,6 +39,9 @@ class Citation:
     char_start: int
     char_end: int
     context: str = ""
+    extraction_version: str = "1.0"
+    extraction_method: str = "pypdf2_basic"
+    pdf_mapping: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert citation to dictionary for JSON serialization."""
@@ -47,6 +53,9 @@ class Citation:
             "char_start": self.char_start,
             "char_end": self.char_end,
             "context": self.context,
+            "extraction_version": self.extraction_version,
+            "extraction_method": self.extraction_method,
+            "pdf_mapping": self.pdf_mapping,
         }
     
     @classmethod
@@ -60,6 +69,9 @@ class Citation:
             char_start=data.get("char_start", 0),
             char_end=data.get("char_end", 0),
             context=data.get("context", ""),
+            extraction_version=data.get("extraction_version", "1.0"),
+            extraction_method=data.get("extraction_method", "pypdf2_basic"),
+            pdf_mapping=data.get("pdf_mapping"),
         )
 
 
@@ -121,6 +133,27 @@ class CitationParser:
         """
         self.doc_processor = doc_processor
     
+    def _get_extraction_metadata(
+        self, 
+        source_file: str
+    ) -> Tuple[str, str]:
+        """Get extraction method and version for a document.
+        
+        Args:
+            source_file: Name of the source document.
+            
+        Returns:
+            Tuple of (extraction_method, extraction_version).
+        """
+        try:
+            doc_data = self.doc_processor.get_document_text(source_file)
+            method = doc_data.get("extraction_method", "pypdf2_basic")
+            version = doc_data.get("extraction_version", "1.0")
+            return (method, version)
+        except Exception:
+            # Fallback to defaults
+            return ("pypdf2_basic", "1.0")
+    
     def get_citation_prompt(self, filename: str) -> str:
         """Get the prompt instructions for citation format.
         
@@ -160,6 +193,11 @@ IMPORTANT:
         processed_text = response_text
         citation_counter = 1
         
+        # Get extraction metadata for this document
+        extraction_method, extraction_version = self._get_extraction_metadata(
+            source_file
+        )
+        
         # First, extract quote-based citations
         for match in self.QUOTE_PATTERN.finditer(response_text):
             quoted_text = match.group(1)
@@ -187,6 +225,8 @@ IMPORTANT:
                     char_start=location["char_start"],
                     char_end=location["char_end"],
                     context=context,
+                    extraction_version=extraction_version,
+                    extraction_method=extraction_method,
                 )
             else:
                 # Citation text not found - still include but mark as unverified
@@ -198,6 +238,8 @@ IMPORTANT:
                     char_start=0,
                     char_end=0,
                     context=f"[Unverified quote: {quoted_text[:50]}...]",
+                    extraction_version=extraction_version,
+                    extraction_method=extraction_method,
                 )
             
             citations.append(citation)
