@@ -137,8 +137,8 @@ const styles = {
   },
   docMenu: {
     position: 'absolute',
-    top: 'calc(100% + 4px)',
-    left: 0,
+    bottom: 'calc(100% + 4px)',
+    right: 0,
     minWidth: '220px',
     background: 'var(--color-bg-elevated)',
     border: '1px solid var(--color-surface-border)',
@@ -146,7 +146,7 @@ const styles = {
     boxShadow: 'var(--shadow-xl)',
     padding: 'var(--space-2)',
     zIndex: 1000,
-    animation: 'slideDown 0.15s ease',
+    animation: 'slideUp 0.15s ease',
   },
   docMenuItem: {
     display: 'flex',
@@ -178,14 +178,11 @@ const styles = {
     minWidth: 0,
     cursor: 'pointer',
     transition: 'color var(--transition-fast)',
+    wordWrap: 'break-word',
+    overflowWrap: 'break-word',
   },
   fileNameHover: {
     color: 'var(--color-accent)',
-  },
-  fileNameTruncated: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
   },
   summaryRowHeader: {
     background: 'var(--color-bg-elevated)',
@@ -642,7 +639,6 @@ export default function MatrixView({
                   <span 
                     style={{
                       ...styles.fileName,
-                      ...(doc.name.length > 30 ? styles.fileNameTruncated : {}),
                       ...(hoveredAction === `filename-${doc.name}` ? styles.fileNameHover : {}),
                     }}
                     title={doc.name}
@@ -686,7 +682,7 @@ export default function MatrixView({
                 
                 {/* Document metadata menu */}
                 {openDocMenu === doc.name && (
-                  <div style={styles.docMenu}>
+                  <div style={styles.docMenu} data-doc-menu>
                     <div style={styles.docMenuItem}>
                       <span style={styles.docMenuLabel}>Last Modified</span>
                       <span style={styles.docMenuValue}>{formatDate(doc.mtime)}</span>
