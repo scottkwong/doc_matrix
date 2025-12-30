@@ -15,11 +15,33 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    position: 'relative',
   },
   scrollArea: {
     flex: 1,
     overflow: 'auto',
     padding: 'var(--space-4)',
+    position: 'relative',
+  },
+  fadeOverlayTop: {
+    position: 'absolute',
+    top: 'var(--space-4)',
+    left: 'var(--space-4)',
+    right: 0,
+    height: '120px',
+    background: 'linear-gradient(to bottom, #0f172a 0%, rgba(15, 23, 42, 0.8) 60%, transparent 100%)',
+    pointerEvents: 'none',
+    zIndex: 25,
+  },
+  fadeOverlayLeft: {
+    position: 'absolute',
+    top: 'var(--space-4)',
+    left: 'var(--space-4)',
+    bottom: 0,
+    width: '240px',
+    background: 'linear-gradient(to right, #0f172a 0%, rgba(15, 23, 42, 0.8) 60%, transparent 100%)',
+    pointerEvents: 'none',
+    zIndex: 15,
   },
   grid: {
     display: 'grid',
@@ -44,8 +66,11 @@ const styles = {
     fontWeight: '600',
     color: 'var(--color-text-muted)',
     fontSize: 'var(--text-sm)',
-    boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.05)',
+    boxShadow: '4px 4px 8px rgba(0, 0, 0, 0.3)',
     overflow: 'hidden',
+    // Add margin to create spacing that prevents cells from peeking through
+    marginRight: 'var(--space-2)',
+    marginBottom: 'var(--space-2)',
   },
   columnHeader: {
     position: 'sticky',
@@ -532,6 +557,10 @@ export default function MatrixView({
   
   return (
     <div style={styles.container}>
+      {/* Fade overlays to hide cells scrolling under headers */}
+      <div style={styles.fadeOverlayTop} />
+      <div style={styles.fadeOverlayLeft} />
+      
       <div style={styles.scrollArea}>
         <div style={{ ...styles.grid, gridTemplateColumns }}>
           {/* Header row */}
