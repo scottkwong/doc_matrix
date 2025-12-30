@@ -25,23 +25,25 @@ const styles = {
   },
   fadeOverlayTop: {
     position: 'absolute',
-    top: 'var(--space-4)',
-    left: 'var(--space-4)',
+    // Cover the area just below the column headers where cells scroll under
+    top: 'calc(var(--space-4) + 60px)',  // Start within the header row area
+    left: 'calc(var(--space-4) + 240px)',  // After row header column + gap
     right: 0,
-    height: '120px',
-    background: 'linear-gradient(to bottom, #0f172a 0%, rgba(15, 23, 42, 0.8) 60%, transparent 100%)',
+    height: '50px',
+    background: 'linear-gradient(to bottom, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.95) 20%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0) 100%)',
     pointerEvents: 'none',
-    zIndex: 25,
+    zIndex: 19,  // Below column headers (20) but above cells (1)
   },
   fadeOverlayLeft: {
     position: 'absolute',
-    top: 'var(--space-4)',
-    left: 'var(--space-4)',
+    // Cover the area just to the right of row headers where cells scroll under
+    top: 'calc(var(--space-4) + 100px)',  // After header row + gap
+    left: 'calc(var(--space-4) + 180px)',  // Start within the row header area
     bottom: 0,
-    width: '240px',
-    background: 'linear-gradient(to right, #0f172a 0%, rgba(15, 23, 42, 0.8) 60%, transparent 100%)',
+    width: '50px',
+    background: 'linear-gradient(to right, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.95) 20%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0) 100%)',
     pointerEvents: 'none',
-    zIndex: 15,
+    zIndex: 9,  // Below row headers (10) but above cells (1)
   },
   grid: {
     display: 'grid',
@@ -68,9 +70,6 @@ const styles = {
     fontSize: 'var(--text-sm)',
     boxShadow: '4px 4px 8px rgba(0, 0, 0, 0.3)',
     overflow: 'hidden',
-    // Add margin to create spacing that prevents cells from peeking through
-    marginRight: 'var(--space-2)',
-    marginBottom: 'var(--space-2)',
   },
   columnHeader: {
     position: 'sticky',
