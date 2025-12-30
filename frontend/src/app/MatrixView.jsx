@@ -29,21 +29,21 @@ const styles = {
     gap: 'var(--space-2)',
     minWidth: 'fit-content',
     position: 'relative',
-    // Ensure cells are clipped when scrolling under sticky headers
-    clipPath: 'inset(0)',
   },
   headerRow: {
     display: 'contents',
   },
   cornerCell: {
     position: 'sticky',
-    left: 0,
-    top: 0,
+    left: '-1px',
+    top: '-1px',
     zIndex: 30,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 'var(--space-3)',
+    paddingLeft: 'calc(var(--space-3) + 1px)',
+    paddingTop: 'calc(var(--space-3) + 1px)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     fontWeight: '600',
@@ -55,21 +55,18 @@ const styles = {
   },
   columnHeader: {
     position: 'sticky',
-    top: 0,
+    top: '-1px',  // Slightly negative to ensure full coverage
     zIndex: 20,
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
+    paddingTop: 'calc(var(--space-3) + 1px)',  // Compensate for negative top
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     minWidth: '200px',
     maxWidth: '300px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-    // Ensure full coverage and proper rendering
-    contain: 'layout style paint',
-    // Solid background to cover scrolling cells
-    backgroundClip: 'padding-box',
   },
   columnHeaderTop: {
     display: 'flex',
@@ -132,22 +129,20 @@ const styles = {
   },
   rowHeader: {
     position: 'sticky',
-    left: 0,
+    left: '-1px',  // Slightly negative to ensure full coverage
     zIndex: 10,
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
+    paddingLeft: 'calc(var(--space-3) + 1px)',  // Compensate for negative left
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     minWidth: '180px',
     maxWidth: '220px',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
-    // Allow doc menu to overflow, but contain the header itself
+    // Allow doc menu to overflow
     overflow: 'visible',
-    contain: 'layout style paint',
-    // Solid background to cover scrolling cells
-    backgroundClip: 'padding-box',
   },
   rowHeaderContent: {
     display: 'flex',
@@ -245,13 +240,14 @@ const styles = {
   },
   addColumnBtn: {
     position: 'sticky',
-    top: 0,
+    top: '-1px',
     zIndex: 20,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
+    paddingTop: 'calc(var(--space-3) + 1px)',
     minWidth: '160px',
     fontSize: 'var(--text-sm)',
     fontWeight: '500',
