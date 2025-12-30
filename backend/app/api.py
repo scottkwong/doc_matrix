@@ -67,11 +67,18 @@ def create_api_routes(state: AppState) -> Blueprint:
     
     # Initialize services (lazily created per request based on root)
     def get_services() -> Dict[str, Any]:
-        """Get or create service instances for current root."""
+        """Get or create service instances for current root.
+        
+        Checks for custom API key in X-OpenRouter-API-Key header.
+        If present, uses it instead of environment key.
+        """
+        # Check for custom API key in request headers
+        custom_api_key = request.headers.get('X-OpenRouter-API-Key')
+        
         storage = StorageManager(state.root)
         doc_processor = DocumentProcessor(storage)
         citation_parser = CitationParser(doc_processor)
-        llm_service = LLMService()
+        llm_service = LLMService(api_key=custom_api_key) if custom_api_key else LLMService()
         project_manager = ProjectManager(storage)
         executor = Executor(
             storage=storage,
@@ -88,6 +95,84 @@ def create_api_routes(state: AppState) -> Blueprint:
             "project_manager": project_manager,
             "executor": executor,
         }
+    
+    # ---------- API Key Validation Routes ----------
+    
+    @api.post("/validate-api-key")
+    def api_validate_api_key():
+        """Validate an OpenRouter API key.
+        
+        Request body:
+            api_key: The OpenRouter API key to validate
+            
+        Returns:
+            valid: True if the key is valid, False otherwise
+            error: Error message if validation failed
+        """
+        data = request.get_json(force=True) or {}
+        api_key = data.get("api_key", "").strip()
+        
+        if not api_key:
+            return jsonify({
+                "valid": False,
+                "error": "API key is required"
+            }), 400
+        
+        # Try to validate the key by making a simple API call
+        async def validate_key():
+            """Validate key by checking key info endpoint."""
+            import httpx
+            try:
+                async with httpx.AsyncClient() as client:
+                    # Use /api/v1/key endpoint which requires valid auth
+                    response = await client.get(
+                        "https://openrouter.ai/api/v1/key",
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        timeout=10.0,
+                    )
+                    
+                    if response.status_code == 200:
+                        # Key is valid - response contains key details
+                        return {"valid": True}
+                    elif response.status_code == 401:
+                        return {
+                            "valid": False,
+                            "error": "Invalid API key"
+                        }
+                    elif response.status_code == 403:
+                        return {
+                            "valid": False,
+                            "error": "API key does not have permission"
+                        }
+                    else:
+                        return {
+                            "valid": False,
+                            "error": f"Validation failed: HTTP {response.status_code}"
+                        }
+            except httpx.TimeoutException:
+                return {
+                    "valid": False,
+                    "error": "Request timed out"
+                }
+            except Exception as e:
+                return {
+                    "valid": False,
+                    "error": f"Validation error: {str(e)}"
+                }
+        
+        try:
+            result = run_async(validate_key())
+            status_code = 200 if result.get("valid") else 400
+            return jsonify(result), status_code
+        except Exception as e:
+            logger.exception(f"Error validating API key: {e}")
+            return jsonify({
+                "valid": False,
+                "error": f"Unexpected error: {str(e)}"
+            }), 500
     
     # ---------- Root/Folder Routes ----------
     

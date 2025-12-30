@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react'
 import ProjectSelector from './ProjectSelector'
 import FileBrowser from './FileBrowser'
+import ApiKeySelector from './ApiKeySelector'
 
 const styles = {
   header: {
@@ -194,6 +195,7 @@ export default function Header({
   selectedModel,
   executionMode,
   isExecuting,
+  envKeyExists,
   onChangeFolder,
   onSelectProject,
   onCreateProject,
@@ -201,6 +203,7 @@ export default function Header({
   onChangeModel,
   onChangeExecutionMode,
   onExecute,
+  onApiKeyChange,
 }) {
   const [isHovering, setIsHovering] = useState(false)
   const [isBrowserOpen, setIsBrowserOpen] = useState(false)
@@ -365,6 +368,11 @@ export default function Header({
             </button>
           </div>
         </div>
+        
+        <ApiKeySelector
+          envKeyExists={envKeyExists}
+          onKeyChange={onApiKeyChange}
+        />
         
         <div style={styles.spacer} />
         
