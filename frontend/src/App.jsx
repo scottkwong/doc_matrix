@@ -11,6 +11,7 @@ import { useNative } from './shell/useNative'
 import Header from './app/Header'
 import MatrixView from './app/MatrixView'
 import ChatPanel from './app/ChatPanel'
+import DocumentViewer from './app/DocumentViewer'
 import Dialog from './app/Dialog'
 
 const styles = {
@@ -121,6 +122,11 @@ export default function App() {
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
   const [folderPathDialogOpen, setFolderPathDialogOpen] = useState(false)
+  
+  // Document viewer state
+  const [isViewerOpen, setIsViewerOpen] = useState(false)
+  const [viewerFilename, setViewerFilename] = useState(null)
+  const [viewerCitation, setViewerCitation] = useState(null)
   
   const { get, post, apiCall } = useApi()
   const { chooseFolder } = useNative()
@@ -612,6 +618,26 @@ export default function App() {
     await post('/open', { rel_path: filename })
   }, [post])
   
+  // Document viewer handlers
+  const handleOpenCitation = useCallback((citation, filename) => {
+    setViewerFilename(filename || citation?.source_file)
+    setViewerCitation(citation)
+    setIsViewerOpen(true)
+  }, [])
+  
+  const handleCloseViewer = useCallback(() => {
+    setIsViewerOpen(false)
+    // Keep filename/citation for smooth close animation
+    setTimeout(() => {
+      setViewerFilename(null)
+      setViewerCitation(null)
+    }, 300)
+  }, [])
+  
+  const handleToggleViewer = useCallback(() => {
+    setIsViewerOpen(prev => !prev)
+  }, [])
+  
   // Chat
   const handleSendMessage = useCallback(async (message) => {
     if (!currentProject || isChatLoading) return
@@ -765,6 +791,16 @@ export default function App() {
       />
       
       <main style={styles.main}>
+        {/* Document Viewer - Left panel */}
+        <DocumentViewer
+          isOpen={isViewerOpen}
+          filename={viewerFilename}
+          citation={viewerCitation}
+          onClose={handleCloseViewer}
+          onToggle={handleToggleViewer}
+        />
+        
+        {/* Main content - Center */}
         <div style={styles.content}>
           {currentProject && projectData ? (
             <MatrixView
@@ -786,6 +822,7 @@ export default function App() {
               onRefreshRow={handleRefreshRow}
               onRefreshColumn={handleRefreshColumn}
               onOpenDocument={handleOpenDocument}
+              onOpenCitation={handleOpenCitation}
             />
           ) : (
             <div style={styles.welcomeScreen}>
@@ -802,6 +839,7 @@ export default function App() {
           )}
         </div>
         
+        {/* Chat Panel - Right panel */}
         <ChatPanel
           messages={chatMessages}
           isLoading={isChatLoading}
@@ -811,6 +849,7 @@ export default function App() {
           onSendMessage={handleSendMessage}
           onClearHistory={handleClearChat}
           onOpenDocument={handleOpenDocument}
+          onOpenCitation={handleOpenCitation}
         />
       </main>
       

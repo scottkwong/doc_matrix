@@ -85,7 +85,8 @@ export default function CitationPopover({
   citation, 
   anchorRect, 
   onClose,
-  onOpenDocument 
+  onOpenDocument,
+  onOpenCitation
 }) {
   const popoverRef = useRef(null)
   const [position, setPosition] = useState({ top: 0, left: 0 })
@@ -163,7 +164,12 @@ export default function CitationPopover({
   }
   
   const handleOpenDocument = () => {
-    if (onOpenDocument) {
+    if (onOpenCitation) {
+      // Use new viewer with citation highlighting
+      onOpenCitation(citation, citation.source_file)
+      onClose()
+    } else if (onOpenDocument) {
+      // Fallback to old behavior
       onOpenDocument(citation.source_file)
     }
   }

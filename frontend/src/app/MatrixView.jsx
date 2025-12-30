@@ -413,6 +413,7 @@ export default function MatrixView({
   onDeleteColumn,
   onReorderColumns,
   onOpenDocument,
+  onOpenCitation,
 }) {
   const [hoveredAction, setHoveredAction] = useState(null)
   const [addBtnHovered, setAddBtnHovered] = useState(false)
@@ -1074,18 +1075,20 @@ export default function MatrixView({
                     result={getCellResult(doc.name, column.id)}
                     onRefresh={() => onRefreshCell(doc.name, column.id)}
                     onOpenDocument={onOpenDocument}
+                    onOpenCitation={onOpenCitation}
                     isRefreshing={refreshingCells[`${doc.name}:${column.id}`]}
                     onManualResize={(width, height) => handleCellResize(rowIndex, column.id, width, height, true)}
                   />
                 ))}
                 
                 {/* Row summary cell */}
-                <MatrixCell
-                  result={rowSummaries[doc.name]}
-                  isSummary
-                  onOpenDocument={onOpenDocument}
-                  onManualResize={(width, height) => handleCellResize(rowIndex, 'summary', width, height, true)}
-                />
+              <MatrixCell
+                result={rowSummaries[doc.name]}
+                isSummary
+                onOpenDocument={onOpenDocument}
+                onOpenCitation={onOpenCitation}
+                onManualResize={(width, height) => handleCellResize(rowIndex, 'summary', width, height, true)}
+              />
                 
                 {/* Spacer for add column */}
                 <div style={{ width: '160px' }} />
@@ -1095,22 +1098,24 @@ export default function MatrixView({
             {/* Summary row */}
             <div style={{ display: 'contents' }}>
               {columns.map((column, colIndex) => (
-                <MatrixCell
-                  key={`summary:${column.id}`}
-                  result={columnSummaries[column.id]}
-                  isSummary
-                  onOpenDocument={onOpenDocument}
-                  onManualResize={(width, height) => handleCellResize('summary', column.id, width, height, true)}
-                />
+              <MatrixCell
+                key={`summary:${column.id}`}
+                result={columnSummaries[column.id]}
+                isSummary
+                onOpenDocument={onOpenDocument}
+                onOpenCitation={onOpenCitation}
+                onManualResize={(width, height) => handleCellResize('summary', column.id, width, height, true)}
+              />
               ))}
               
               {/* Overall summary cell */}
-              <MatrixCell
-                result={overallSummary}
-                isOverall
-                onOpenDocument={onOpenDocument}
-                onManualResize={(width, height) => handleCellResize('summary', 'summary', width, height, true)}
-              />
+            <MatrixCell
+              result={overallSummary}
+              isOverall
+              onOpenDocument={onOpenDocument}
+              onOpenCitation={onOpenCitation}
+              onManualResize={(width, height) => handleCellResize('summary', 'summary', width, height, true)}
+            />
               
               {/* Spacer for add column */}
               <div style={{ width: '160px' }} />

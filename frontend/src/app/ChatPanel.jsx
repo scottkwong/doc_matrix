@@ -237,7 +237,7 @@ function LoadingMessage() {
   )
 }
 
-function ChatMessage({ message, onOpenDocument }) {
+function ChatMessage({ message, onOpenDocument, onOpenCitation }) {
   const isUser = message.role === 'user'
   
   const formatTime = (timestamp) => {
@@ -265,6 +265,7 @@ function ChatMessage({ message, onOpenDocument }) {
             text={message.content}
             citations={message.citations || []}
             onOpenDocument={onOpenDocument}
+            onOpenCitation={onOpenCitation}
           />
         )}
       </div>
@@ -284,6 +285,7 @@ export default function ChatPanel({
   onSendMessage,
   onClearHistory,
   onOpenDocument,
+  onOpenCitation,
 }) {
   const [input, setInput] = useState('')
   const [isFocused, setIsFocused] = useState(false)
@@ -415,6 +417,7 @@ export default function ChatPanel({
                 key={message.id || message.timestamp}
                 message={message}
                 onOpenDocument={onOpenDocument}
+                onOpenCitation={onOpenCitation}
               />
             ))}
           </>

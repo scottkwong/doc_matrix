@@ -332,25 +332,17 @@ class Executor:
             doc_data = self.doc_processor.get_document_text(filename)
             doc_text = doc_data.get("text", "")
             
-            # Query LLM
-            response = await self.llm_service.complete_with_document(
+            # Query LLM with structured output
+            structured_answer = await self.llm_service.complete_with_document_structured(
                 document_text=doc_text,
                 question=column.question,
                 filename=filename,
                 model=model,
             )
             
-            # Track token usage
-            if response.usage:
-                input_tokens = response.usage.get("prompt_tokens", 0)
-                output_tokens = response.usage.get("completion_tokens", 0)
-                self.project_manager.add_token_usage(
-                    project_name, input_tokens, output_tokens
-                )
-            
-            # Parse citations
-            parsed = self.citation_parser.parse_response(
-                response.content, filename
+            # Parse citations using structured response
+            parsed = self.citation_parser.parse_structured_response(
+                structured_answer, filename
             )
             
             result = CellResult(

@@ -264,6 +264,7 @@ export default function MatrixCell({
   isOverall = false,
   onRefresh,
   onOpenDocument,
+  onOpenCitation,
   isRefreshing = false,
   cellHeight,
   onManualResize,
@@ -487,6 +488,7 @@ export default function MatrixCell({
               text={answer}
               citations={citations || []}
               onOpenDocument={onOpenDocument}
+              onOpenCitation={onOpenCitation}
             />
             
             {isExpanded && (

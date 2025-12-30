@@ -37,7 +37,7 @@ const styles = {
   },
 }
 
-export function CitationMarker({ number, citation, onOpenDocument }) {
+export function CitationMarker({ number, citation, onOpenDocument, onOpenCitation }) {
   const [isHovered, setIsHovered] = useState(false)
   const [showPopover, setShowPopover] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
@@ -80,6 +80,7 @@ export function CitationMarker({ number, citation, onOpenDocument }) {
           anchorRect={anchorRect}
           onClose={() => setShowPopover(false)}
           onOpenDocument={onOpenDocument}
+          onOpenCitation={onOpenCitation}
         />
       )}
     </>
@@ -93,7 +94,7 @@ export function CitationMarker({ number, citation, onOpenDocument }) {
  * 1. Backend format: [1], [2], etc. with separate citations array
  * 2. Legacy format: [[cite:"text"]] or [[cite:filename:"text"]]
  */
-export function CitedText({ text, citations = [], onOpenDocument }) {
+export function CitedText({ text, citations = [], onOpenDocument, onOpenCitation }) {
   if (!text) return null
   
   const parts = []
@@ -220,6 +221,7 @@ export function CitedText({ text, citations = [], onOpenDocument }) {
             number={part.number}
             citation={part.citation}
             onOpenDocument={onOpenDocument}
+            onOpenCitation={onOpenCitation}
           />
         )
       })}
