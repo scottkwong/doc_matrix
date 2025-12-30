@@ -112,16 +112,15 @@ const styles = {
  * Obfuscate an API key for display (show first 4 and last 4 chars).
  * 
  * @param {string} key - The API key to obfuscate
- * @returns {string} Obfuscated key
+ * @returns {string} Obfuscated key in format: xxxx*...*yyyy
  */
 function obfuscateKey(key) {
   if (!key || key.length < 8) {
-    return '••••••••••••'
+    return '*...*'
   }
   const first4 = key.slice(0, 4)
   const last4 = key.slice(-4)
-  const starCount = Math.max(8, key.length - 8)
-  return `${first4}${'•'.repeat(starCount)}${last4}`
+  return `${first4}*...*${last4}`
 }
 
 export default function ApiKeySelector({ envKeyExists, onKeyChange }) {

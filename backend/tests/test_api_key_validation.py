@@ -89,27 +89,24 @@ class TestApiKeyValidation:
         def obfuscate_key(key: str) -> str:
             """Python version of the obfuscate function."""
             if not key or len(key) < 8:
-                return '••••••••••••'
+                return '*...*'
             first4 = key[:4]
             last4 = key[-4:]
-            star_count = max(8, len(key) - 8)
-            return f"{first4}{'•' * star_count}{last4}"
+            return f"{first4}*...*{last4}"
         
         # Test normal key
         key = "sk-or-v1-0123456789abcdef"
         obfuscated = obfuscate_key(key)
-        assert obfuscated.startswith("sk-o")
-        assert obfuscated.endswith("cdef")
-        assert "••••••••" in obfuscated
+        assert obfuscated == "sk-o*...*cdef"
         
         # Test short key
         short_key = "abc"
-        assert obfuscate_key(short_key) == '••••••••••••'
+        assert obfuscate_key(short_key) == '*...*'
         
         # Test exact 8 char key
         eight_char = "12345678"
         obfuscated_8 = obfuscate_key(eight_char)
-        assert obfuscated_8 == "1234••••••••5678"
+        assert obfuscated_8 == "1234*...*5678"
 
 
 if __name__ == "__main__":

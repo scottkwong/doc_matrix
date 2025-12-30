@@ -44,7 +44,7 @@ A complete React component that provides:
   - Deletes from localStorage when key is cleared
 
 **Key Features**:
-- Obfuscation: Shows first 4 chars + dots + last 4 chars (e.g., `sk-o••••••••cdef`)
+- Obfuscation: Shows first 4 chars + `*...*` + last 4 chars (e.g., `sk-o*...*cdef`)
 - Click obfuscated key to edit
 - Press Enter to blur and trigger validation
 - Tooltip appears near input field on validation errors
@@ -119,7 +119,7 @@ A complete React component that provides:
   - Can be accessed if someone has file system access to the user's machine
 
 ### Display Security
-- **Obfuscation**: Keys are obfuscated as `sk-o••••••••cdef`
+- **Obfuscation**: Keys are obfuscated as `sk-o*...*cdef`
   - First 4 and last 4 characters visible
   - Middle characters replaced with bullets (•)
   - Raw key only visible while actively editing
