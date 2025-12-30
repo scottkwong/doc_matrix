@@ -543,7 +543,6 @@ export default function App() {
         next.delete(columnId)
         return next
       })
-    }
       alert(`Refresh failed: ${error.message}`)
     } finally {
       const clearUpdates = {}
@@ -552,7 +551,7 @@ export default function App() {
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
     }
-  }, [currentProject, isExecuting, projectData, post, selectedModel, startPolling])
+  }, [currentProject, isExecuting, executingColumns, projectData, post, selectedModel, startPolling])
   
   // Document opening
   const handleOpenDocument = useCallback(async (filename) => {
