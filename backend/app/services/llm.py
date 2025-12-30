@@ -454,7 +454,11 @@ class LLMService:
             json_data = json.loads(content)
             
             # Validate with Pydantic
-            structured_answer = StructuredAnswer(**json_data)
+            try:
+                structured_answer = StructuredAnswer(**json_data)
+            except Exception as pydantic_err:
+                logger.error(f"❌ Pydantic validation failed: {pydantic_err}")
+                raise ValueError(f"Response doesn't match expected schema: {pydantic_err}")
             
             logger.info(
                 f"✅ Structured response: {len(structured_answer.citations)} "
@@ -467,18 +471,9 @@ class LLMService:
             logger.error(f"❌ Failed to parse JSON response: {e}")
             logger.error(f"Raw content: {content[:500] if content else '(empty)'}...")
             
-            # Try to salvage the response by wrapping it
-            try:
-                # If the LLM returned plain text, wrap it as a valid response
-                fallback_answer = StructuredAnswer(
-                    answer=content if content else "No response from LLM",
-                    citations=[]
-                )
-                logger.warning(f"⚠️  Using fallback wrapped response")
-                return fallback_answer
-            except Exception:
-                # If even that fails, raise the original error
-                raise ValueError(f"Invalid JSON response from LLM: {e}")
+            # Re-raise as ValueError so executor can fall back to legacy parsing
+            # Do NOT wrap JSON string as answer - that displays raw JSON in cells!
+            raise ValueError(f"Invalid JSON response from LLM: {e}")
         except Exception as e:
             logger.error(f"❌ Structured request failed: {e}")
             raise

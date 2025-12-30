@@ -177,6 +177,13 @@ class CitationParser:
         Returns:
             ParsedResponse with verified citations and answer text.
         """
+        logger.info(
+            f"📋 Parsing structured response for {source_file}, "
+            f"answer length: {len(structured_answer.answer)}, "
+            f"citations: {len(structured_answer.citations)}"
+        )
+        logger.debug(f"Answer text preview: {structured_answer.answer[:200]}...")
+        
         citations: List[Citation] = []
         processed_text = structured_answer.answer
         
