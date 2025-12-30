@@ -163,7 +163,8 @@ class CitationParser:
         """Parse structured JSON response from LLM.
         
         Takes a Pydantic-validated StructuredAnswer and resolves citations
-        against the source document.
+        against the source document. Replaces inline citation markers with
+        numbered references.
         
         Args:
             structured_answer: Validated structured answer from LLM.
@@ -173,6 +174,7 @@ class CitationParser:
             ParsedResponse with verified citations and answer text.
         """
         citations: List[Citation] = []
+        processed_text = structured_answer.answer
         
         # Get extraction metadata for this document
         extraction_method, extraction_version = self._get_extraction_metadata(
@@ -226,11 +228,24 @@ class CitationParser:
                 )
             
             citations.append(citation)
+            
+            # Replace inline citation markers with numbered references
+            # Look for [[cite:"exact text"]] or [[cite:'exact text']]
+            import re
+            # Escape special regex characters in the citation text
+            escaped_text = re.escape(citation_req.text)
+            # Match both double and single quotes
+            pattern = rf'\[\[cite:["\']?{escaped_text}["\']?\]\]'
+            processed_text = re.sub(
+                pattern, 
+                f"[{idx}]", 
+                processed_text,
+                count=1,  # Only replace first occurrence
+                flags=re.IGNORECASE
+            )
         
-        # For structured responses, the answer text is already clean
-        # (no inline citation markers to process)
         return ParsedResponse(
-            text=structured_answer.answer,
+            text=processed_text,
             citations=citations,
             raw_text=structured_answer.answer,
         )

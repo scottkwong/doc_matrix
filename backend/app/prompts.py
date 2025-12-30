@@ -55,7 +55,7 @@ the provided document accurately and concisely.
 
 You must respond with valid JSON in this EXACT format:
 {{
-  "answer": "Your answer text here without inline citation markers",
+  "answer": "Your answer text with [[cite:\\"quoted text\\"]] markers inline",
   "citations": [
     {{
       "text": "exact quoted text from document",
@@ -65,18 +65,20 @@ You must respond with valid JSON in this EXACT format:
 }}
 
 CRITICAL RULES:
-1. The "answer" field contains your response WITHOUT inline citations
+1. The "answer" field contains your response WITH inline citation markers [[cite:"text"]]
 2. The "citations" array contains every quote you reference
 3. Quote text EXACTLY as it appears in the document (character-for-character)
 4. Each citation's "text" field should be concise (under 200 characters)
 5. The "context" field is optional but helpful for showing surrounding text
 6. Include citations for all factual claims from the document
-7. If the document doesn't contain relevant information, return empty citations array
-8. Source document: {filename}
+7. Use [[cite:"exact text"]] format in the answer where you reference each citation
+8. The quoted text in [[cite:"..."]] must match a "text" field in citations array
+9. If the document doesn't contain relevant information, return empty citations array
+10. Source document: {filename}
 
 Example:
 {{
-  "answer": "The company saw strong growth in Q3 with revenue increasing significantly.",
+  "answer": "The company saw strong growth in Q3 with [[cite:\\"revenue increased by 15% year-over-year\\"]].",
   "citations": [
     {{
       "text": "revenue increased by 15% year-over-year",
