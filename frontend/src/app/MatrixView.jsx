@@ -110,6 +110,10 @@ const styles = {
   iconBtnDanger: {
     color: 'var(--color-error)',
   },
+  iconBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
   summaryHeader: {
     background: 'var(--color-bg-elevated)',
     borderLeft: '3px solid var(--color-accent)',
@@ -251,6 +255,9 @@ export default function MatrixView({
   columnSummaries = {},
   overallSummary = null,
   refreshingCells = {},
+  executingColumns = new Set(),
+  executingRows = new Set(),
+  isExecuting = false,
   onAddColumn,
   onUpdateColumn,
   onDeleteColumn,
@@ -564,12 +571,14 @@ export default function MatrixView({
                         <button
                           style={{
                             ...styles.iconBtn,
-                            ...(hoveredAction === `run-${column.id}` ? styles.iconBtnHover : {}),
+                            ...(hoveredAction === `run-${column.id}` && !executingColumns.has(column.id) && !isExecuting ? styles.iconBtnHover : {}),
+                            ...(executingColumns.has(column.id) || isExecuting ? styles.iconBtnDisabled : {}),
                           }}
                           onClick={() => onRefreshColumn(column.id)}
                           onMouseEnter={() => setHoveredAction(`run-${column.id}`)}
                           onMouseLeave={() => setHoveredAction(null)}
                           title="Run this column"
+                          disabled={executingColumns.has(column.id) || isExecuting}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3" />
@@ -669,12 +678,14 @@ export default function MatrixView({
                 <button
                   style={{
                     ...styles.iconBtn,
-                    ...(hoveredAction === `run-row-${doc.name}` ? styles.iconBtnHover : {}),
+                    ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) && !isExecuting ? styles.iconBtnHover : {}),
+                    ...(executingRows.has(doc.name) || isExecuting ? styles.iconBtnDisabled : {}),
                   }}
                   onClick={() => onRefreshRow(doc.name)}
                   onMouseEnter={() => setHoveredAction(`run-row-${doc.name}`)}
                   onMouseLeave={() => setHoveredAction(null)}
                   title="Run this row"
+                  disabled={executingRows.has(doc.name) || isExecuting}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3" />

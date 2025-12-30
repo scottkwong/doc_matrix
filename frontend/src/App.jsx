@@ -112,6 +112,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [isExecuting, setIsExecuting] = useState(false)
   const [refreshingCells, setRefreshingCells] = useState({})
+  const [executingColumns, setExecutingColumns] = useState(new Set())
+  const [executingRows, setExecutingRows] = useState(new Set())
   const [chatMessages, setChatMessages] = useState([])
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
@@ -394,6 +396,9 @@ export default function App() {
         if (!status.is_running) {
           clearInterval(pollInterval)
           setIsExecuting(false)
+          // Clear all executing state when complete
+          setExecutingColumns(new Set())
+          setExecutingRows(new Set())
           console.log('🏁 Execution complete')
           console.groupEnd()
         }
@@ -401,6 +406,9 @@ export default function App() {
         console.error('❌ Polling error:', error)
         clearInterval(pollInterval)
         setIsExecuting(false)
+        // Clear all executing state on error
+        setExecutingColumns(new Set())
+        setExecutingRows(new Set())
         console.groupEnd()
       }
     }, 2000)
@@ -462,9 +470,12 @@ export default function App() {
   }, [currentProject, isExecuting, post, selectedModel, startPolling])
   
   const handleRefreshRow = useCallback(async (filename) => {
-    if (!currentProject || isExecuting) return
+    if (!currentProject || isExecuting || executingRows.has(filename)) return
     
     console.group(`📄 Refresh Row: ${filename}`)
+    
+    // Mark row as executing
+    setExecutingRows((prev) => new Set(prev).add(filename))
     
     // Mark all cells in this row as refreshing
     const columns = projectData?.config?.columns || []
@@ -485,6 +496,12 @@ export default function App() {
       console.error(`❌ Row ${filename} failed:`, error)
       console.groupEnd()
       alert(`Refresh failed: ${error.message}`)
+      // Clear executing state on error
+      setExecutingRows((prev) => {
+        const next = new Set(prev)
+        next.delete(filename)
+        return next
+      })
     } finally {
       const clearUpdates = {}
       columns.forEach((col) => {
@@ -492,12 +509,15 @@ export default function App() {
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
     }
-  }, [currentProject, isExecuting, projectData, post, selectedModel, startPolling])
+  }, [currentProject, isExecuting, executingRows, projectData, post, selectedModel, startPolling])
   
   const handleRefreshColumn = useCallback(async (columnId) => {
-    if (!currentProject || isExecuting) return
+    if (!currentProject || isExecuting || executingColumns.has(columnId)) return
     
     console.group(`📊 Refresh Column: ${columnId}`)
+    
+    // Mark column as executing
+    setExecutingColumns((prev) => new Set(prev).add(columnId))
     
     // Mark all cells in this column as refreshing
     const documents = projectData?.documents || []
@@ -517,6 +537,12 @@ export default function App() {
     } catch (error) {
       console.error(`❌ Column ${columnId} failed:`, error)
       console.groupEnd()
+      // Clear executing state on error
+      setExecutingColumns((prev) => {
+        const next = new Set(prev)
+        next.delete(columnId)
+        return next
+      })
       alert(`Refresh failed: ${error.message}`)
     } finally {
       const clearUpdates = {}
@@ -525,7 +551,7 @@ export default function App() {
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
     }
-  }, [currentProject, isExecuting, projectData, post, selectedModel, startPolling])
+  }, [currentProject, isExecuting, executingColumns, projectData, post, selectedModel, startPolling])
   
   // Document opening
   const handleOpenDocument = useCallback(async (filename) => {
@@ -685,6 +711,9 @@ export default function App() {
               columnSummaries={projectData.results?.column_summaries || {}}
               overallSummary={projectData.results?.overall_summary}
               refreshingCells={refreshingCells}
+              executingColumns={executingColumns}
+              executingRows={executingRows}
+              isExecuting={isExecuting}
               onAddColumn={handleAddColumn}
               onUpdateColumn={handleUpdateColumn}
               onDeleteColumn={handleDeleteColumn}

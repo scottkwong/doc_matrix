@@ -174,8 +174,10 @@ const styles = {
     transition: 'all var(--transition-fast)',
   },
   runButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
     cursor: 'not-allowed',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text-muted)',
   },
   runIcon: {
     width: '16px',
@@ -373,7 +375,7 @@ export default function Header({
           }}
           onClick={onExecute}
           disabled={isExecuting || !currentProject}
-          onMouseEnter={() => setIsHovering(true)}
+          onMouseEnter={() => !isExecuting && !currentProject || setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
         >
           {isExecuting ? (

@@ -497,21 +497,27 @@ class Executor:
                 for col in config.columns
             }
 
+            pending_tasks = set(tasks)
+
             # Stream results as each cell finishes
-            for task in asyncio.as_completed(tasks):
-                col = tasks[task]
-                try:
-                    result = await task
-                except Exception as exc:
-                    result = CellResult(
-                        answer="",
-                        citations=[],
-                        model=model,
-                        timestamp=dt.datetime.utcnow().isoformat() + "Z",
-                        status="error",
-                        error=str(exc),
-                    )
-                results[col.id] = result
+            while pending_tasks:
+                done, pending_tasks = await asyncio.wait(
+                    pending_tasks, return_when=asyncio.FIRST_COMPLETED
+                )
+                for completed_task in done:
+                    col = tasks[completed_task]
+                    try:
+                        result = await completed_task
+                    except Exception as exc:
+                        result = CellResult(
+                            answer="",
+                            citations=[],
+                            model=model,
+                            timestamp=dt.datetime.utcnow().isoformat() + "Z",
+                            status="error",
+                            error=str(exc),
+                        )
+                    results[col.id] = result
         
         # Generate row summary
         await self._generate_row_summary(project_name, filename, model)
