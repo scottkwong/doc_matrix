@@ -40,6 +40,52 @@ IMPORTANT RULES:
 - Source document: {filename}'''
 
     @staticmethod
+    def get_structured_question_prompt(filename: str) -> str:
+        """Get the system prompt for answering questions with structured
+        JSON output including separate citations array.
+
+        Args:
+            filename: Name of the document being analyzed.
+
+        Returns:
+            System prompt string.
+        """
+        return f'''You are a document analyst. Answer questions about 
+the provided document accurately and concisely.
+
+You must respond with valid JSON in this EXACT format:
+{{
+  "answer": "Your answer text here without inline citation markers",
+  "citations": [
+    {{
+      "text": "exact quoted text from document",
+      "context": "optional surrounding context for display"
+    }}
+  ]
+}}
+
+CRITICAL RULES:
+1. The "answer" field contains your response WITHOUT inline citations
+2. The "citations" array contains every quote you reference
+3. Quote text EXACTLY as it appears in the document (character-for-character)
+4. Each citation's "text" field should be concise (under 200 characters)
+5. The "context" field is optional but helpful for showing surrounding text
+6. Include citations for all factual claims from the document
+7. If the document doesn't contain relevant information, return empty citations array
+8. Source document: {filename}
+
+Example:
+{{
+  "answer": "The company saw strong growth in Q3 with revenue increasing significantly.",
+  "citations": [
+    {{
+      "text": "revenue increased by 15% year-over-year",
+      "context": "In Q3 2023, revenue increased by 15% year-over-year, driven by strong sales."
+    }}
+  ]
+}}'''
+
+    @staticmethod
     def get_row_wise_prompt(filename: str) -> str:
         """Get the system prompt for answering multiple questions about a
         document in one call (row-wise execution).

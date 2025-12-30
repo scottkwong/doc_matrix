@@ -588,6 +588,69 @@ def create_api_routes(state: AppState) -> Blueprint:
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     
+    @api.get("/documents/<path:filename>/content")
+    def api_get_document_content(filename: str):
+        """Get document content with metadata for viewer.
+        
+        Returns extracted text with extraction version info and
+        rendering hints for the document viewer.
+        """
+        services = get_services()
+        try:
+            doc_data = services["doc_processor"].get_document_text(filename)
+            
+            # Add rendering hints based on file type
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            
+            return jsonify({
+                "filename": filename,
+                "text": doc_data.get("text", ""),
+                "pages": doc_data.get("pages", []),
+                "extraction_method": doc_data.get("extraction_method", "unknown"),
+                "extraction_version": doc_data.get("extraction_version", "1.0"),
+                "file_type": ext,
+                "char_count": doc_data.get("char_count", 0),
+                "page_count": doc_data.get("page_count", 1),
+            })
+        except FileNotFoundError:
+            return jsonify({"error": "Document not found"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @api.post("/documents/<path:filename>/pdf-location")
+    def api_get_pdf_location(filename: str):
+        """Translate text positions to PDF coordinates.
+        
+        POST body: {char_start, char_end, extraction_version}
+        Returns: {page, bbox, search_text, confidence}
+        """
+        services = get_services()
+        data = request.get_json(force=True) or {}
+        
+        char_start = data.get("char_start", 0)
+        char_end = data.get("char_end", 0)
+        extraction_version = data.get("extraction_version", "1.0")
+        
+        try:
+            # Get document text for context
+            doc_data = services["doc_processor"].get_document_text(filename)
+            full_text = doc_data.get("text", "")
+            
+            # Translate to PDF coordinates
+            pdf_location = services["doc_processor"].position_mapper.translate_to_pdf_coords(
+                filename,
+                char_start,
+                char_end,
+                extraction_version,
+                full_text
+            )
+            
+            return jsonify(pdf_location.to_dict())
+        except FileNotFoundError:
+            return jsonify({"error": "Document not found"}), 404
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
     @api.get("/models")
     def api_list_models():
         """List available LLM models."""

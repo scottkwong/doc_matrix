@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from .documents import DocumentProcessor
+from ..schemas import StructuredAnswer, CitationRequest
 
 
 @dataclass
@@ -153,6 +154,86 @@ class CitationParser:
         except Exception:
             # Fallback to defaults
             return ("pypdf2_basic", "1.0")
+    
+    def parse_structured_response(
+        self,
+        structured_answer: StructuredAnswer,
+        source_file: str,
+    ) -> ParsedResponse:
+        """Parse structured JSON response from LLM.
+        
+        Takes a Pydantic-validated StructuredAnswer and resolves citations
+        against the source document.
+        
+        Args:
+            structured_answer: Validated structured answer from LLM.
+            source_file: Name of the source document.
+            
+        Returns:
+            ParsedResponse with verified citations and answer text.
+        """
+        citations: List[Citation] = []
+        
+        # Get extraction metadata for this document
+        extraction_method, extraction_version = self._get_extraction_metadata(
+            source_file
+        )
+        
+        # Process each citation from the structured response
+        for idx, citation_req in enumerate(structured_answer.citations, start=1):
+            citation_id = f"cite_{idx}"
+            
+            # Try to find this text in the document
+            location = self.doc_processor.find_text_location(
+                source_file, citation_req.text
+            )
+            
+            if location:
+                # Citation verified - found in document
+                # Use provided context or fetch from document
+                context = citation_req.context if citation_req.context else (
+                    self.doc_processor.get_context_around(
+                        source_file,
+                        location["char_start"],
+                        location["char_end"],
+                        context_chars=150
+                    )
+                )
+                
+                citation = Citation(
+                    id=citation_id,
+                    source_file=source_file,
+                    text=citation_req.text,
+                    page=location["page"],
+                    char_start=location["char_start"],
+                    char_end=location["char_end"],
+                    context=context,
+                    extraction_version=extraction_version,
+                    extraction_method=extraction_method,
+                )
+            else:
+                # Citation not verified - not found in document
+                citation = Citation(
+                    id=citation_id,
+                    source_file=source_file,
+                    text=citation_req.text,
+                    page=0,
+                    char_start=0,
+                    char_end=0,
+                    context=citation_req.context or f"[Unverified: {citation_req.text[:50]}...]",
+                    extraction_version=extraction_version,
+                    extraction_method=extraction_method,
+                )
+            
+            citations.append(citation)
+        
+        # For structured responses, the answer text is already clean
+        # (no inline citation markers to process)
+        return ParsedResponse(
+            text=structured_answer.answer,
+            citations=citations,
+            raw_text=structured_answer.answer,
+        )
     
     def get_citation_prompt(self, filename: str) -> str:
         """Get the prompt instructions for citation format.

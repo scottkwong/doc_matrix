@@ -29,6 +29,7 @@ from ..prompts import (
     DocumentAnalysisPrompts,
     SummaryPrompts,
 )
+from ..schemas import StructuredAnswer
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +379,97 @@ class LLMService:
         return await self.complete(
             messages, model=model, config=DOCUMENT_ANALYSIS_CONFIG
         )
+    
+    async def complete_with_document_structured(
+        self,
+        document_text: str,
+        question: str,
+        filename: str,
+        model: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> StructuredAnswer:
+        """Query an LLM about a document with structured JSON response.
+        
+        Uses JSON mode to get structured output with citations array.
+        Validates response with Pydantic schema.
+        
+        Args:
+            document_text: Full text of the document.
+            question: Question to ask about the document.
+            filename: Name of the source file (for citation context).
+            model: Model to use.
+            system_prompt: Custom system prompt. Uses default if None.
+            
+        Returns:
+            StructuredAnswer with validated answer and citations.
+            
+        Raises:
+            ValueError: If response cannot be parsed as valid JSON.
+            ValidationError: If response doesn't match schema.
+        """
+        if system_prompt is None:
+            system_prompt = (
+                DocumentAnalysisPrompts.get_structured_question_prompt(
+                    filename
+                )
+            )
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user", 
+                "content": f"Document:\n\n{document_text}\n\n---\n\n"
+                          f"Question: {question}\n\n"
+                          f"Respond with valid JSON matching this schema:\n"
+                          f'{{"answer": "your answer here", '
+                          f'"citations": [{{"text": "exact quote", '
+                          f'"context": "optional context"}}]}}'
+            },
+        ]
+        
+        model_name = model or self.default_model
+        model_id = self.get_model_id(model_name)
+        
+        payload = {
+            "model": model_id,
+            "messages": messages,
+            "temperature": DOCUMENT_ANALYSIS_CONFIG.temperature,
+            "max_tokens": DOCUMENT_ANALYSIS_CONFIG.max_tokens,
+            "response_format": {"type": "json_object"},  # JSON mode
+        }
+        
+        logger.info(f"🔧 Structured request to {model_name} (JSON mode)")
+        
+        try:
+            response = await self.client.post(
+                "/chat/completions",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            content = data["choices"][0]["message"]["content"]
+            
+            # Parse JSON response
+            json_data = json.loads(content)
+            
+            # Validate with Pydantic
+            structured_answer = StructuredAnswer(**json_data)
+            
+            logger.info(
+                f"✅ Structured response: {len(structured_answer.citations)} "
+                f"citations"
+            )
+            
+            return structured_answer
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Failed to parse JSON response: {e}")
+            logger.error(f"Raw content: {content[:200]}...")
+            raise ValueError(f"Invalid JSON response from LLM: {e}")
+        except Exception as e:
+            logger.error(f"❌ Structured request failed: {e}")
+            raise
     
     async def complete_row_wise(
         self,
