@@ -18,10 +18,11 @@ const styles = {
     minWidth: '200px',
     padding: 'var(--space-3)',
     background: 'var(--color-surface)',
-    border: '1px solid var(--color-surface-border)',
+    border: '1px solid white',
     borderRadius: 'var(--radius-md)',
     transition: 'border-color var(--transition-fast)',
     overflow: 'auto',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
   },
   cellResizable: {
     cursor: 'default',
@@ -92,11 +93,13 @@ const styles = {
   },
   cellSummary: {
     background: 'var(--color-bg-elevated)',
-    borderColor: 'var(--color-accent-muted)',
+    borderColor: 'var(--color-accent)',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
   },
   cellOverall: {
     background: 'linear-gradient(135deg, var(--color-accent-subtle) 0%, var(--color-bg-elevated) 100%)',
     borderColor: 'var(--color-accent)',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
   },
   cellError: {
     borderColor: 'var(--color-error)',
@@ -190,6 +193,10 @@ const styles = {
     cursor: 'pointer',
     transition: 'all var(--transition-fast)',
   },
+  controlBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
   controlBtnHover: {
     color: 'var(--color-accent)',
     borderColor: 'var(--color-accent)',
@@ -260,7 +267,8 @@ export default function MatrixCell({
   const resizeStartSize = useRef({ width: 0, height: 0 })
   const resizeMode = useRef(null) // 'horizontal', 'vertical', or 'both'
   
-  const status = isRefreshing ? 'running' : (result?.status || 'pending')
+  // Only show status if we have a result or are actively refreshing
+  const status = isRefreshing ? 'running' : result?.status
   const answer = result?.answer || ''
   const citations = result?.citations || []
   const hasError = status === 'error'
@@ -479,8 +487,9 @@ export default function MatrixCell({
       ) : (
         <div style={styles.emptyState}>
           {status === 'pending' && 'Not yet run'}
-          {status === 'running' && 'Processing...'}
+          {status === 'running' && 'Thinking...'}
           {status === 'error' && (result?.error || 'Error occurred')}
+          {!status && ''}
         </div>
       )}
       
@@ -493,7 +502,8 @@ export default function MatrixCell({
           <button
             style={{
               ...styles.controlBtn,
-              ...(refreshBtnHovered ? styles.controlBtnHover : {}),
+              ...(refreshBtnHovered && !isRefreshing ? styles.controlBtnHover : {}),
+              ...(isRefreshing ? styles.controlBtnDisabled : {}),
             }}
             onClick={handleRefresh}
             onMouseEnter={() => setRefreshBtnHovered(true)}
@@ -514,15 +524,15 @@ export default function MatrixCell({
         </div>
       )}
       
-      {/* Status indicator - only show for non-completed or error */}
-      {(status !== 'completed' || hasError) && (
+      {/* Status indicator - only show if status exists and is not completed (unless error) */}
+      {status && (status !== 'completed' || hasError) && (
         <div style={{ ...styles.statusBadge, ...getStatusStyle() }}>
           {status === 'running' && <div style={styles.spinner} />}
           {status === 'pending' && '○'}
           {status === 'completed' && '✓'}
           {status === 'error' && '✕'}
           <span style={{ marginLeft: '2px' }}>
-            {status === 'running' && 'Running'}
+            {status === 'running' && 'Thinking'}
             {status === 'pending' && 'Pending'}
             {status === 'error' && 'Error'}
           </span>

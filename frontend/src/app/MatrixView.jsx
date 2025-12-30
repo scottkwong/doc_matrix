@@ -20,6 +20,7 @@ const styles = {
     flex: 1,
     overflow: 'auto',
     padding: 'var(--space-4)',
+    position: 'relative',
   },
   grid: {
     display: 'grid',
@@ -109,6 +110,10 @@ const styles = {
   iconBtnDanger: {
     color: 'var(--color-error)',
   },
+  iconBtnDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
   summaryHeader: {
     background: 'var(--color-bg-elevated)',
     borderLeft: '3px solid var(--color-accent)',
@@ -137,8 +142,8 @@ const styles = {
   },
   docMenu: {
     position: 'absolute',
-    top: 'calc(100% + 4px)',
-    left: 0,
+    bottom: 'calc(100% + 4px)',
+    right: 0,
     minWidth: '220px',
     background: 'var(--color-bg-elevated)',
     border: '1px solid var(--color-surface-border)',
@@ -146,7 +151,7 @@ const styles = {
     boxShadow: 'var(--shadow-xl)',
     padding: 'var(--space-2)',
     zIndex: 1000,
-    animation: 'slideDown 0.15s ease',
+    animation: 'slideUp 0.15s ease',
   },
   docMenuItem: {
     display: 'flex',
@@ -178,14 +183,11 @@ const styles = {
     minWidth: 0,
     cursor: 'pointer',
     transition: 'color var(--transition-fast)',
+    wordWrap: 'break-word',
+    overflowWrap: 'break-word',
   },
   fileNameHover: {
     color: 'var(--color-accent)',
-  },
-  fileNameTruncated: {
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
   },
   summaryRowHeader: {
     background: 'var(--color-bg-elevated)',
@@ -253,6 +255,9 @@ export default function MatrixView({
   columnSummaries = {},
   overallSummary = null,
   refreshingCells = {},
+  executingColumns = new Set(),
+  executingRows = new Set(),
+  isExecuting = false,
   onAddColumn,
   onUpdateColumn,
   onDeleteColumn,
@@ -566,12 +571,14 @@ export default function MatrixView({
                         <button
                           style={{
                             ...styles.iconBtn,
-                            ...(hoveredAction === `run-${column.id}` ? styles.iconBtnHover : {}),
+                            ...(hoveredAction === `run-${column.id}` && !executingColumns.has(column.id) && !isExecuting ? styles.iconBtnHover : {}),
+                            ...(executingColumns.has(column.id) || isExecuting ? styles.iconBtnDisabled : {}),
                           }}
                           onClick={() => onRefreshColumn(column.id)}
                           onMouseEnter={() => setHoveredAction(`run-${column.id}`)}
                           onMouseLeave={() => setHoveredAction(null)}
                           title="Run this column"
+                          disabled={executingColumns.has(column.id) || isExecuting}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3" />
@@ -642,7 +649,6 @@ export default function MatrixView({
                   <span 
                     style={{
                       ...styles.fileName,
-                      ...(doc.name.length > 30 ? styles.fileNameTruncated : {}),
                       ...(hoveredAction === `filename-${doc.name}` ? styles.fileNameHover : {}),
                     }}
                     title={doc.name}
@@ -672,12 +678,14 @@ export default function MatrixView({
                 <button
                   style={{
                     ...styles.iconBtn,
-                    ...(hoveredAction === `run-row-${doc.name}` ? styles.iconBtnHover : {}),
+                    ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) && !isExecuting ? styles.iconBtnHover : {}),
+                    ...(executingRows.has(doc.name) || isExecuting ? styles.iconBtnDisabled : {}),
                   }}
                   onClick={() => onRefreshRow(doc.name)}
                   onMouseEnter={() => setHoveredAction(`run-row-${doc.name}`)}
                   onMouseLeave={() => setHoveredAction(null)}
                   title="Run this row"
+                  disabled={executingRows.has(doc.name) || isExecuting}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3" />
@@ -686,7 +694,7 @@ export default function MatrixView({
                 
                 {/* Document metadata menu */}
                 {openDocMenu === doc.name && (
-                  <div style={styles.docMenu}>
+                  <div style={styles.docMenu} data-doc-menu>
                     <div style={styles.docMenuItem}>
                       <span style={styles.docMenuLabel}>Last Modified</span>
                       <span style={styles.docMenuValue}>{formatDate(doc.mtime)}</span>

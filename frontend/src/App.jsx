@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useApi } from './shell/useApi'
+import { useApi, setCustomApiKey as setGlobalApiKey } from './shell/useApi'
 import { useNative } from './shell/useNative'
 import Header from './app/Header'
 import MatrixView from './app/MatrixView'
@@ -107,11 +107,15 @@ export default function App() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('gpt-5.2')
   const [executionMode, setExecutionMode] = useState('parallel')
+  const [envKeyExists, setEnvKeyExists] = useState(false)
+  const [customApiKey, setCustomApiKey] = useState(null)
   
   // UI state
   const [isLoading, setIsLoading] = useState(true)
   const [isExecuting, setIsExecuting] = useState(false)
   const [refreshingCells, setRefreshingCells] = useState({})
+  const [executingColumns, setExecutingColumns] = useState(new Set())
+  const [executingRows, setExecutingRows] = useState(new Set())
   const [chatMessages, setChatMessages] = useState([])
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(false)
@@ -132,6 +136,7 @@ export default function App() {
         setRoot(rootData.root || '')
         setModels(modelsData.models || [])
         setSelectedModel(settingsData.default_model || 'gpt-5.2')
+        setEnvKeyExists(settingsData.has_api_key || false)
         
         // Load projects if we have a root
         if (rootData.root) {
@@ -385,6 +390,45 @@ export default function App() {
         const project = await get(`/projects/${encodeURIComponent(currentProject)}`)
         setProjectData(project)
         
+        // Clear completed rows/columns from executing state
+        if (project?.results?.cells && project?.config?.columns) {
+          setExecutingRows((prev) => {
+            const next = new Set(prev)
+            const columns = project.config.columns
+            
+            // Check each executing row to see if all its cells are completed
+            prev.forEach((filename) => {
+              const allComplete = columns.every((col) => {
+                const cellKey = `${filename}:${col.id}`
+                const cell = project.results.cells[cellKey]
+                return cell && (cell.status === 'completed' || cell.status === 'error')
+              })
+              if (allComplete) {
+                next.delete(filename)
+              }
+            })
+            return next
+          })
+          
+          setExecutingColumns((prev) => {
+            const next = new Set(prev)
+            const documents = project.documents || []
+            
+            // Check each executing column to see if all its cells are completed
+            prev.forEach((columnId) => {
+              const allComplete = documents.every((doc) => {
+                const cellKey = `${doc.name}:${columnId}`
+                const cell = project.results.cells[cellKey]
+                return cell && (cell.status === 'completed' || cell.status === 'error')
+              })
+              if (allComplete) {
+                next.delete(columnId)
+              }
+            })
+            return next
+          })
+        }
+        
         // Check if still running
         const status = await get(`/projects/${encodeURIComponent(currentProject)}/status`)
         console.log('⏱️ Poll tick', {
@@ -394,6 +438,11 @@ export default function App() {
         if (!status.is_running) {
           clearInterval(pollInterval)
           setIsExecuting(false)
+          // Final cleanup - clear any remaining executing state
+          setExecutingColumns(new Set())
+          setExecutingRows(new Set())
+          // Clear refreshing cells
+          setRefreshingCells({})
           console.log('🏁 Execution complete')
           console.groupEnd()
         }
@@ -401,6 +450,10 @@ export default function App() {
         console.error('❌ Polling error:', error)
         clearInterval(pollInterval)
         setIsExecuting(false)
+        // Clear all executing state on error
+        setExecutingColumns(new Set())
+        setExecutingRows(new Set())
+        setRefreshingCells({})
         console.groupEnd()
       }
     }, 2000)
@@ -456,15 +509,18 @@ export default function App() {
       console.error(`❌ Cell ${cellKey} failed:`, error)
       console.groupEnd()
       alert(`Refresh failed: ${error.message}`)
-    } finally {
+      // Clear refreshing state on error
       setRefreshingCells((prev) => ({ ...prev, [cellKey]: false }))
     }
   }, [currentProject, isExecuting, post, selectedModel, startPolling])
   
   const handleRefreshRow = useCallback(async (filename) => {
-    if (!currentProject || isExecuting) return
+    if (!currentProject || executingRows.has(filename)) return
     
     console.group(`📄 Refresh Row: ${filename}`)
+    
+    // Mark row as executing
+    setExecutingRows((prev) => new Set(prev).add(filename))
     
     // Mark all cells in this row as refreshing
     const columns = projectData?.config?.columns || []
@@ -485,19 +541,27 @@ export default function App() {
       console.error(`❌ Row ${filename} failed:`, error)
       console.groupEnd()
       alert(`Refresh failed: ${error.message}`)
-    } finally {
+      // Clear executing state and refreshing cells on error
+      setExecutingRows((prev) => {
+        const next = new Set(prev)
+        next.delete(filename)
+        return next
+      })
       const clearUpdates = {}
       columns.forEach((col) => {
         clearUpdates[`${filename}:${col.id}`] = false
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
     }
-  }, [currentProject, isExecuting, projectData, post, selectedModel, startPolling])
+  }, [currentProject, executingRows, projectData, post, selectedModel, startPolling])
   
   const handleRefreshColumn = useCallback(async (columnId) => {
-    if (!currentProject || isExecuting) return
+    if (!currentProject || executingColumns.has(columnId)) return
     
     console.group(`📊 Refresh Column: ${columnId}`)
+    
+    // Mark column as executing
+    setExecutingColumns((prev) => new Set(prev).add(columnId))
     
     // Mark all cells in this column as refreshing
     const documents = projectData?.documents || []
@@ -517,15 +581,20 @@ export default function App() {
     } catch (error) {
       console.error(`❌ Column ${columnId} failed:`, error)
       console.groupEnd()
-      alert(`Refresh failed: ${error.message}`)
-    } finally {
+      // Clear executing state and refreshing cells on error
+      setExecutingColumns((prev) => {
+        const next = new Set(prev)
+        next.delete(columnId)
+        return next
+      })
       const clearUpdates = {}
       documents.forEach((doc) => {
         clearUpdates[`${doc.name}:${columnId}`] = false
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
+      alert(`Refresh failed: ${error.message}`)
     }
-  }, [currentProject, isExecuting, projectData, post, selectedModel, startPolling])
+  }, [currentProject, executingColumns, projectData, post, selectedModel, startPolling])
   
   // Document opening
   const handleOpenDocument = useCallback(async (filename) => {
@@ -603,6 +672,14 @@ export default function App() {
     setIsChatCollapsed((prev) => !prev)
   }, [])
   
+  // API Key management
+  const handleApiKeyChange = useCallback((key) => {
+    // Update state
+    setCustomApiKey(key)
+    // Update global API context so all API calls use this key
+    setGlobalApiKey(key)
+  }, [])
+  
   // Loading state
   if (isLoading) {
     return (
@@ -665,6 +742,7 @@ export default function App() {
         selectedModel={selectedModel}
         executionMode={executionMode}
         isExecuting={isExecuting}
+        envKeyExists={envKeyExists}
         onChangeFolder={handleChangeFolder}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
@@ -672,6 +750,7 @@ export default function App() {
         onChangeModel={handleChangeModel}
         onChangeExecutionMode={handleChangeExecutionMode}
         onExecute={handleExecuteAll}
+        onApiKeyChange={handleApiKeyChange}
       />
       
       <main style={styles.main}>
@@ -685,6 +764,9 @@ export default function App() {
               columnSummaries={projectData.results?.column_summaries || {}}
               overallSummary={projectData.results?.overall_summary}
               refreshingCells={refreshingCells}
+              executingColumns={executingColumns}
+              executingRows={executingRows}
+              isExecuting={isExecuting}
               onAddColumn={handleAddColumn}
               onUpdateColumn={handleUpdateColumn}
               onDeleteColumn={handleDeleteColumn}

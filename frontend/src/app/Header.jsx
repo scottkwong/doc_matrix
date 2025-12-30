@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react'
 import ProjectSelector from './ProjectSelector'
 import FileBrowser from './FileBrowser'
+import ApiKeySelector from './ApiKeySelector'
 
 const styles = {
   header: {
@@ -174,8 +175,10 @@ const styles = {
     transition: 'all var(--transition-fast)',
   },
   runButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
     cursor: 'not-allowed',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text-muted)',
   },
   runIcon: {
     width: '16px',
@@ -192,6 +195,7 @@ export default function Header({
   selectedModel,
   executionMode,
   isExecuting,
+  envKeyExists,
   onChangeFolder,
   onSelectProject,
   onCreateProject,
@@ -199,6 +203,7 @@ export default function Header({
   onChangeModel,
   onChangeExecutionMode,
   onExecute,
+  onApiKeyChange,
 }) {
   const [isHovering, setIsHovering] = useState(false)
   const [isBrowserOpen, setIsBrowserOpen] = useState(false)
@@ -364,6 +369,11 @@ export default function Header({
           </div>
         </div>
         
+        <ApiKeySelector
+          envKeyExists={envKeyExists}
+          onKeyChange={onApiKeyChange}
+        />
+        
         <div style={styles.spacer} />
         
         <button
@@ -373,7 +383,7 @@ export default function Header({
           }}
           onClick={onExecute}
           disabled={isExecuting || !currentProject}
-          onMouseEnter={() => setIsHovering(true)}
+          onMouseEnter={() => !isExecuting && !currentProject || setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
         >
           {isExecuting ? (

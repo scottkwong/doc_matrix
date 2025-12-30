@@ -218,9 +218,8 @@ class StorageManager:
                     if cache_path.exists():
                         cached_data = self.read_json(cache_path)
                         if cached_data:
-                            # Estimate tokens (rough: ~4 chars per token)
-                            text = cached_data.get("text", "")
-                            doc_info["token_count"] = len(text) // 4
+                            # Use actual token count from cache if available
+                            doc_info["token_count"] = cached_data.get("token_count", 0)
                     
                     documents.append(doc_info)
         

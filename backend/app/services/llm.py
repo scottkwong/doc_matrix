@@ -111,6 +111,63 @@ class LLMService:
             await self._client.aclose()
             self._client = None
     
+    @staticmethod
+    async def validate_api_key(api_key: str) -> Dict[str, Any]:
+        """Validate an OpenRouter API key.
+        
+        Makes a test request to OpenRouter's /api/v1/key endpoint to verify
+        the key is valid and has proper permissions.
+        
+        Args:
+            api_key: The OpenRouter API key to validate.
+            
+        Returns:
+            Dictionary with validation result:
+                - valid (bool): True if key is valid
+                - error (str, optional): Error message if validation failed
+                
+        Raises:
+            No exceptions raised - errors are returned in the result dict.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://openrouter.ai/api/v1/key",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10.0,
+                )
+                
+                if response.status_code == 200:
+                    return {"valid": True}
+                elif response.status_code == 401:
+                    return {
+                        "valid": False,
+                        "error": "Invalid API key"
+                    }
+                elif response.status_code == 403:
+                    return {
+                        "valid": False,
+                        "error": "API key does not have permission"
+                    }
+                else:
+                    return {
+                        "valid": False,
+                        "error": f"Validation failed: HTTP {response.status_code}"
+                    }
+        except httpx.TimeoutException:
+            return {
+                "valid": False,
+                "error": "Request timed out"
+            }
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Validation error: {str(e)}"
+            }
+    
     def get_model_id(self, model_name: str) -> str:
         """Get the OpenRouter model ID for a display name.
         
