@@ -390,6 +390,45 @@ export default function App() {
         const project = await get(`/projects/${encodeURIComponent(currentProject)}`)
         setProjectData(project)
         
+        // Clear completed rows/columns from executing state
+        if (project?.results?.cells && project?.config?.columns) {
+          setExecutingRows((prev) => {
+            const next = new Set(prev)
+            const columns = project.config.columns
+            
+            // Check each executing row to see if all its cells are completed
+            prev.forEach((filename) => {
+              const allComplete = columns.every((col) => {
+                const cellKey = `${filename}:${col.id}`
+                const cell = project.results.cells[cellKey]
+                return cell && (cell.status === 'completed' || cell.status === 'error')
+              })
+              if (allComplete) {
+                next.delete(filename)
+              }
+            })
+            return next
+          })
+          
+          setExecutingColumns((prev) => {
+            const next = new Set(prev)
+            const documents = project.documents || []
+            
+            // Check each executing column to see if all its cells are completed
+            prev.forEach((columnId) => {
+              const allComplete = documents.every((doc) => {
+                const cellKey = `${doc.name}:${columnId}`
+                const cell = project.results.cells[cellKey]
+                return cell && (cell.status === 'completed' || cell.status === 'error')
+              })
+              if (allComplete) {
+                next.delete(columnId)
+              }
+            })
+            return next
+          })
+        }
+        
         // Check if still running
         const status = await get(`/projects/${encodeURIComponent(currentProject)}/status`)
         console.log('⏱️ Poll tick', {
@@ -399,9 +438,11 @@ export default function App() {
         if (!status.is_running) {
           clearInterval(pollInterval)
           setIsExecuting(false)
-          // Clear all executing state when complete
+          // Final cleanup - clear any remaining executing state
           setExecutingColumns(new Set())
           setExecutingRows(new Set())
+          // Clear refreshing cells
+          setRefreshingCells({})
           console.log('🏁 Execution complete')
           console.groupEnd()
         }
@@ -412,6 +453,7 @@ export default function App() {
         // Clear all executing state on error
         setExecutingColumns(new Set())
         setExecutingRows(new Set())
+        setRefreshingCells({})
         console.groupEnd()
       }
     }, 2000)
