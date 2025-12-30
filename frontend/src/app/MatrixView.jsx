@@ -20,6 +20,7 @@ const styles = {
     flex: 1,
     overflow: 'auto',
     padding: 'var(--space-4)',
+    position: 'relative',
   },
   grid: {
     display: 'grid',
