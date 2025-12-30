@@ -5,6 +5,7 @@ This file glues together the framework (localwebapp/) and your app logic
 the app/ package.
 """
 
+import logging
 from pathlib import Path
 
 import webview
@@ -12,10 +13,13 @@ from webview.menu import Menu, MenuAction, MenuSeparator
 
 from app.api import create_api_routes
 from app.config import config
+from app.logging_config import setup_logging
 from app.state import AppState
 from localwebapp.desktop import JsApi, run_app
 from localwebapp.platform import get_resource_path
 from localwebapp.server import create_flask_app
+
+logger = logging.getLogger(__name__)
 
 
 def create_js_api(state: AppState) -> JsApi:
@@ -82,8 +86,13 @@ def create_menu(js_api: JsApi) -> list:
 
 def main():
     """Initialize and launch the application."""
+    # Set up logging first
+    setup_logging(log_level="INFO")
+    logger.info("🚀 Doc Matrix starting...")
+    
     # Load application state
     state = AppState.load(default_root=Path.home())
+    logger.info(f"📁 Current root: {state.root}")
     
     # Create API routes with state
     api_blueprint = create_api_routes(state)
@@ -93,6 +102,7 @@ def main():
     
     # Create Flask app
     flask_app = create_flask_app(static_root, api_blueprint)
+    logger.info("✅ Flask app initialized")
     
     # Create JavaScript API
     js_api = create_js_api(state)
