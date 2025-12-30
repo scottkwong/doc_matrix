@@ -205,20 +205,23 @@ const styles = {
     flexDirection: 'column',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
-    paddingTop: 'var(--space-4)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
     position: 'relative',
     flexShrink: 0,
+    minHeight: '80px',
+  },
+  rowHeaderTop: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 'var(--space-2)',
   },
   rowHeaderButtons: {
-    position: 'absolute',
-    top: 'var(--space-2)',
-    right: 'var(--space-2)',
     display: 'flex',
     gap: 'var(--space-1)',
-    zIndex: 2,
+    flexShrink: 0,
   },
   rowHeaderContent: {
     display: 'flex',
@@ -766,57 +769,60 @@ export default function MatrixView({
                   zIndex: openDocMenu === doc.name ? 1000 : 1,
                 }}
               >
-                {/* Buttons always visible in top-right corner */}
-                <div style={styles.rowHeaderButtons}>
-                  <button
-                    style={{
-                      ...styles.iconBtn,
-                      ...(hoveredAction === `menu-${doc.name}` ? styles.iconBtnHover : {}),
-                    }}
-                    onClick={() => toggleDocMenu(doc.name)}
-                    onMouseEnter={() => setHoveredAction(`menu-${doc.name}`)}
-                    onMouseLeave={() => setHoveredAction(null)}
-                    title="Document info"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="1" />
-                      <circle cx="12" cy="5" r="1" />
-                      <circle cx="12" cy="19" r="1" />
-                    </svg>
-                  </button>
-                  <button
-                    style={{
-                      ...styles.iconBtn,
-                      ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) ? styles.iconBtnHover : {}),
-                      ...(executingRows.has(doc.name) ? styles.iconBtnDisabled : {}),
-                    }}
-                    onClick={() => onRefreshRow(doc.name)}
-                    onMouseEnter={() => setHoveredAction(`run-row-${doc.name}`)}
-                    onMouseLeave={() => setHoveredAction(null)}
-                    title="Run this row"
-                    disabled={executingRows.has(doc.name)}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                  </button>
-                </div>
-                
-                {/* Document name - click to open document */}
-                <div style={styles.rowHeaderContent}>
-                  {getFileIcon(doc.name)}
-                  <span 
-                    style={{
-                      ...styles.fileName,
-                      ...(hoveredAction === `filename-${doc.name}` ? styles.fileNameHover : {}),
-                    }}
-                    title={`Click to open: ${doc.name}`}
-                    onClick={() => onOpenDocument(doc.name)}
-                    onMouseEnter={() => setHoveredAction(`filename-${doc.name}`)}
-                    onMouseLeave={() => setHoveredAction(null)}
-                  >
-                    {doc.name}
-                  </span>
+                {/* Top row: file icon, name, and buttons */}
+                <div style={styles.rowHeaderTop}>
+                  {/* Document name - click to open document */}
+                  <div style={styles.rowHeaderContent}>
+                    {getFileIcon(doc.name)}
+                    <span 
+                      style={{
+                        ...styles.fileName,
+                        ...(hoveredAction === `filename-${doc.name}` ? styles.fileNameHover : {}),
+                      }}
+                      title={`Click to open: ${doc.name}`}
+                      onClick={() => onOpenDocument(doc.name)}
+                      onMouseEnter={() => setHoveredAction(`filename-${doc.name}`)}
+                      onMouseLeave={() => setHoveredAction(null)}
+                    >
+                      {doc.name}
+                    </span>
+                  </div>
+                  
+                  {/* Action buttons - always visible */}
+                  <div style={styles.rowHeaderButtons}>
+                    <button
+                      style={{
+                        ...styles.iconBtn,
+                        ...(hoveredAction === `menu-${doc.name}` ? styles.iconBtnHover : {}),
+                      }}
+                      onClick={() => toggleDocMenu(doc.name)}
+                      onMouseEnter={() => setHoveredAction(`menu-${doc.name}`)}
+                      onMouseLeave={() => setHoveredAction(null)}
+                      title="Document info"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="5" r="1" />
+                        <circle cx="12" cy="19" r="1" />
+                      </svg>
+                    </button>
+                    <button
+                      style={{
+                        ...styles.iconBtn,
+                        ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) ? styles.iconBtnHover : {}),
+                        ...(executingRows.has(doc.name) ? styles.iconBtnDisabled : {}),
+                      }}
+                      onClick={() => onRefreshRow(doc.name)}
+                      onMouseEnter={() => setHoveredAction(`run-row-${doc.name}`)}
+                      onMouseLeave={() => setHoveredAction(null)}
+                      title="Run this row"
+                      disabled={executingRows.has(doc.name)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Document metadata menu */}
