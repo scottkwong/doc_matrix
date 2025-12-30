@@ -20,9 +20,6 @@ const styles = {
     flex: 1,
     overflow: 'auto',
     padding: 'var(--space-4)',
-    position: 'relative',
-    // Create stacking context for proper z-index behavior
-    isolation: 'isolate',
   },
   grid: {
     display: 'grid',
@@ -35,33 +32,29 @@ const styles = {
   },
   cornerCell: {
     position: 'sticky',
-    left: '-1px',
-    top: '-1px',
+    left: 0,
+    top: 0,
     zIndex: 30,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 'var(--space-3)',
-    paddingLeft: 'calc(var(--space-3) + 1px)',
-    paddingTop: 'calc(var(--space-3) + 1px)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     fontWeight: '600',
     color: 'var(--color-text-muted)',
     fontSize: 'var(--text-sm)',
     boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.05)',
-    // Ensure content doesn't overflow
     overflow: 'hidden',
   },
   columnHeader: {
     position: 'sticky',
-    top: '-1px',  // Slightly negative to ensure full coverage
+    top: 0,
     zIndex: 20,
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
-    paddingTop: 'calc(var(--space-3) + 1px)',  // Compensate for negative top
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     minWidth: '200px',
@@ -129,19 +122,17 @@ const styles = {
   },
   rowHeader: {
     position: 'sticky',
-    left: '-1px',  // Slightly negative to ensure full coverage
+    left: 0,
     zIndex: 10,
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
-    paddingLeft: 'calc(var(--space-3) + 1px)',  // Compensate for negative left
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     minWidth: '180px',
     maxWidth: '220px',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
-    // Allow doc menu to overflow
     overflow: 'visible',
   },
   rowHeaderContent: {
@@ -240,14 +231,13 @@ const styles = {
   },
   addColumnBtn: {
     position: 'sticky',
-    top: '-1px',
+    top: 0,
     zIndex: 20,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
-    paddingTop: 'calc(var(--space-3) + 1px)',
     minWidth: '160px',
     fontSize: 'var(--text-sm)',
     fontWeight: '500',
