@@ -8,6 +8,21 @@
 import { useCallback } from 'react'
 
 /**
+ * Get the custom API key from the API context.
+ * This is a simple global variable that can be set by App.jsx.
+ */
+let customApiKey = null
+
+/**
+ * Set the custom API key to be used for all API calls.
+ * 
+ * @param {string|null} key - The API key to use, or null to use environment key
+ */
+export function setCustomApiKey(key) {
+  customApiKey = key
+}
+
+/**
  * Custom hook for making API calls to the backend.
  * 
  * @returns {object} API call utilities
@@ -18,10 +33,23 @@ export function useApi() {
     const method = options.method || 'GET'
     const startTime = performance.now()
     
+    // Add custom API key header if set
+    const headers = {
+      ...options.headers,
+    }
+    if (customApiKey) {
+      headers['X-OpenRouter-API-Key'] = customApiKey
+    }
+    
+    const fetchOptions = {
+      ...options,
+      headers,
+    }
+    
     console.log(`📤 API Request: ${method} ${url}`)
     
     try {
-      const response = await fetch(url, options)
+      const response = await fetch(url, fetchOptions)
       const elapsed = performance.now() - startTime
       
       if (!response.ok) {
