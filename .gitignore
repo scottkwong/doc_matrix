@@ -22,6 +22,10 @@ backend/frontend_dist/
 # macOS
 .DS_Store
 
+# Environment
+.env
+backend/.env
+
 # Logs
 /tmp/*.log
 *.log
