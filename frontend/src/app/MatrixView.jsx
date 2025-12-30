@@ -18,9 +18,9 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
 
 // Default dimensions for consistent sizing
-const DEFAULT_ROW_HEADER_WIDTH = 350  // Wider to show full filenames
+const DEFAULT_ROW_HEADER_WIDTH = 400  // Wide enough for full filenames
 const DEFAULT_HEADER_ROW_HEIGHT = 100
-const MIN_ROW_HEADER_WIDTH = 200
+const MIN_ROW_HEADER_WIDTH = 250
 const MIN_HEADER_ROW_HEIGHT = 60
 const CELL_WIDTH = 250
 const CELL_HEIGHT = 120
@@ -278,9 +278,13 @@ const styles = {
     minWidth: 0,
     cursor: 'pointer',
     transition: 'color var(--transition-fast)',
-    wordWrap: 'break-word',
+    wordBreak: 'break-word',
     overflowWrap: 'break-word',
-    lineHeight: 1.3,
+    lineHeight: 1.4,
+    display: '-webkit-box',
+    WebkitLineClamp: 4,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
   },
   fileNameHover: {
     color: 'var(--color-accent)',
