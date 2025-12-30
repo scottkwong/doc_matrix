@@ -87,55 +87,111 @@ export function CitationMarker({ number, citation, onOpenDocument }) {
 }
 
 /**
- * Parses text with citation markers [[cite:"text"]] or [[cite:filename:"text"]] 
- * and renders them as interactive citation indicators.
+ * Parses text with citation markers and renders them as interactive indicators.
+ * 
+ * Supports two formats:
+ * 1. Backend format: [1], [2], etc. with separate citations array
+ * 2. Legacy format: [[cite:"text"]] or [[cite:filename:"text"]]
  */
 export function CitedText({ text, citations = [], onOpenDocument }) {
   if (!text) return null
   
-  // Pattern to match [[cite:"text"]] or [[cite:filename:"text"]]
-  // Matches [[cite: followed by optional filename + :, then quoted text, then ]]
-  const citationPattern = /\[\[cite:(?:([^:\]]+):)?["']([\s\S]*?)["']\]\]/g
-  
   const parts = []
-  let lastIndex = 0
-  let match
-  let citationCounter = 1
   
-  // Create a copy of text to work with
-  const workingText = text
-  
-  while ((match = citationPattern.exec(workingText)) !== null) {
-    // Add text before the citation
-    if (match.index > lastIndex) {
-      parts.push({
-        type: 'text',
-        content: workingText.slice(lastIndex, match.index),
-      })
+  // Check if we have citations array from backend (new format)
+  if (citations && citations.length > 0) {
+    // Backend sends answer text with [1], [2], etc. and separate citations array
+    // Pattern to match [1], [2], [3], etc.
+    const numberPattern = /\[(\d+)\]/g
+    
+    let lastIndex = 0
+    let match
+    
+    while ((match = numberPattern.exec(text)) !== null) {
+      // Add text before the citation
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.slice(lastIndex, match.index),
+        })
+      }
+      
+      // Get citation number (1-indexed)
+      const citationNum = parseInt(match[1], 10)
+      const citation = citations[citationNum - 1]  // Convert to 0-indexed
+      
+      if (citation) {
+        parts.push({
+          type: 'citation',
+          number: citationNum,
+          citation: citation,
+        })
+      } else {
+        // Citation not found in array, render as text
+        parts.push({
+          type: 'text',
+          content: match[0],
+        })
+      }
+      
+      lastIndex = match.index + match[0].length
     }
     
-    // Extract parts from the match
-    const filename = match[1] ? match[1].trim() : null
-    const quotedText = match[2] ? match[2].trim() : ""
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.slice(lastIndex),
+      })
+    }
+  } else {
+    // Legacy format: Parse [[cite:"text"]] or [[cite:filename:"text"]]
+    const citationPattern = /\[\[cite:(?:([^:\]]+):)?["']([\s\S]*?)["']\]\]/g
     
-    parts.push({
-      type: 'citation',
-      number: citationCounter++,
-      citation: {
-        source_file: filename || "Source Document",
-        text: quotedText,
-        page: null
-      },
-    })
+    let lastIndex = 0
+    let match
+    let citationCounter = 1
     
-    lastIndex = match.index + match[0].length
+    while ((match = citationPattern.exec(text)) !== null) {
+      // Add text before the citation
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.slice(lastIndex, match.index),
+        })
+      }
+      
+      // Extract parts from the match
+      const filename = match[1] ? match[1].trim() : null
+      const quotedText = match[2] ? match[2].trim() : ""
+      
+      parts.push({
+        type: 'citation',
+        number: citationCounter++,
+        citation: {
+          source_file: filename || "Source Document",
+          text: quotedText,
+          page: null
+        },
+      })
+      
+      lastIndex = match.index + match[0].length
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.slice(lastIndex),
+      })
+    }
   }
   
-  // Add remaining text
-  if (lastIndex < workingText.length) {
+  // If no citations found at all, render as plain text
+  if (parts.length === 0) {
     parts.push({
       type: 'text',
-      content: workingText.slice(lastIndex),
+      content: text,
     })
   }
   
