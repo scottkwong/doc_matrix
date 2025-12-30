@@ -768,7 +768,7 @@ export default function App() {
               executingRows={executingRows}
               isExecuting={isExecuting}
               onAddColumn={handleAddColumn}
-              onUpdateColumn={handleUpdateColumn}
+              onEditColumn={handleUpdateColumn}
               onDeleteColumn={handleDeleteColumn}
               onReorderColumns={handleReorderColumns}
               onRefreshCell={handleRefreshCell}

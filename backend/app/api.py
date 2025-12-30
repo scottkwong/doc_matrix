@@ -30,7 +30,7 @@ from .state import AppState
 
 logger = logging.getLogger(__name__)
 
-# Track active background executions
+# Track active background executions (more granular: project:type:identifier)
 active_executions: Set[str] = set()
 execution_lock = threading.Lock()
 
@@ -413,29 +413,33 @@ def create_api_routes(state: AppState) -> Blueprint:
     
     # ---------- Execution Routes ----------
     
-    def start_background_execution(name: str, coro):
+    def start_background_execution(name: str, coro, execution_key: str = None):
         """Helper to start a background execution task.
         
         Args:
             name: Project name.
             coro: Coroutine to execute.
+            execution_key: Unique key for this execution (defaults to project name for full execution).
         """
-        logger.info(f"🧵 Background launcher: request accepted for project={name}")
+        # Use execution_key if provided, otherwise use project name (for "Run All")
+        exec_key = execution_key if execution_key else name
+        
+        logger.info(f"🧵 Background launcher: request accepted for project={name}, key={exec_key}")
         with execution_lock:
-            if name in active_executions:
+            if exec_key in active_executions:
                 return jsonify({"error": "Execution already in progress"}), 409
-            active_executions.add(name)
+            active_executions.add(exec_key)
             
         def run_execution():
             try:
                 run_async(coro)
-                logger.info(f"✅ Background: Execution complete - project={name}")
+                logger.info(f"✅ Background: Execution complete - project={name}, key={exec_key}")
             except Exception as e:
-                logger.exception(f"💥 Background: Execution error - project={name}: {e}")
+                logger.exception(f"💥 Background: Execution error - project={name}, key={exec_key}: {e}")
             finally:
                 with execution_lock:
-                    if name in active_executions:
-                        active_executions.remove(name)
+                    if exec_key in active_executions:
+                        active_executions.remove(exec_key)
         
         # Start in background thread
         thread = threading.Thread(target=run_execution)
@@ -457,13 +461,15 @@ def create_api_routes(state: AppState) -> Blueprint:
         
         logger.info(f"🎬 API: Execute all cells - project={name}, model={model}")
         services = get_services()
-        return start_background_execution(name, services["executor"].execute_all(name, model=model))
+        # For "Run All", use project name as key to block all other executions
+        return start_background_execution(name, services["executor"].execute_all(name, model=model), execution_key=f"{name}:all")
 
     @api.get("/projects/<name>/status")
     def api_get_status(name: str):
         """Check if execution is in progress."""
         with execution_lock:
-            is_running = name in active_executions
+            # Check if ANY execution is running for this project
+            is_running = any(key.startswith(f"{name}:") for key in active_executions)
         return jsonify({
             "is_running": is_running
         })
@@ -485,9 +491,8 @@ def create_api_routes(state: AppState) -> Blueprint:
         )
         
         services = get_services()
-        # For a single cell, we can still run it synchronously or background it.
-        # User wants streaming/async/parallel for Run Row, so cell can probably be backgrounded too.
-        return start_background_execution(name, services["executor"].execute_cell(name, filename, column_id, model=model))
+        # For a single cell, use unique key per cell
+        return start_background_execution(name, services["executor"].execute_cell(name, filename, column_id, model=model), execution_key=f"{name}:cell:{filename}:{column_id}")
     
     @api.post("/projects/<name>/execute/row/<path:filename>")
     def api_execute_row(name: str, filename: str):
@@ -497,7 +502,8 @@ def create_api_routes(state: AppState) -> Blueprint:
         
         logger.info(f"📄 API: Execute row - project={name}, file={filename}, model={model}")
         services = get_services()
-        return start_background_execution(name, services["executor"].execute_row(name, filename, model=model))
+        # For row execution, use unique key per row to allow concurrent rows
+        return start_background_execution(name, services["executor"].execute_row(name, filename, model=model), execution_key=f"{name}:row:{filename}")
     
     @api.post("/projects/<name>/execute/column/<column_id>")
     def api_execute_column(name: str, column_id: str):
@@ -507,7 +513,8 @@ def create_api_routes(state: AppState) -> Blueprint:
         
         logger.info(f"📊 API: Execute column - project={name}, column={column_id}")
         services = get_services()
-        return start_background_execution(name, services["executor"].execute_column(name, column_id, model=model))
+        # For column execution, use unique key per column to allow concurrent columns
+        return start_background_execution(name, services["executor"].execute_column(name, column_id, model=model), execution_key=f"{name}:column:{column_id}")
     
     # ---------- Chat Routes ----------
     
