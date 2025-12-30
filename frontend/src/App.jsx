@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useApi } from './shell/useApi'
+import { useApi, setCustomApiKey as setGlobalApiKey } from './shell/useApi'
 import { useNative } from './shell/useNative'
 import Header from './app/Header'
 import MatrixView from './app/MatrixView'
@@ -107,6 +107,8 @@ export default function App() {
   const [models, setModels] = useState([])
   const [selectedModel, setSelectedModel] = useState('gpt-5.2')
   const [executionMode, setExecutionMode] = useState('parallel')
+  const [envKeyExists, setEnvKeyExists] = useState(false)
+  const [customApiKey, setCustomApiKey] = useState(null)
   
   // UI state
   const [isLoading, setIsLoading] = useState(true)
@@ -134,6 +136,7 @@ export default function App() {
         setRoot(rootData.root || '')
         setModels(modelsData.models || [])
         setSelectedModel(settingsData.default_model || 'gpt-5.2')
+        setEnvKeyExists(settingsData.has_api_key || false)
         
         // Load projects if we have a root
         if (rootData.root) {
@@ -464,13 +467,13 @@ export default function App() {
       console.error(`❌ Cell ${cellKey} failed:`, error)
       console.groupEnd()
       alert(`Refresh failed: ${error.message}`)
-    } finally {
+      // Clear refreshing state on error
       setRefreshingCells((prev) => ({ ...prev, [cellKey]: false }))
     }
   }, [currentProject, isExecuting, post, selectedModel, startPolling])
   
   const handleRefreshRow = useCallback(async (filename) => {
-    if (!currentProject || isExecuting || executingRows.has(filename)) return
+    if (!currentProject || executingRows.has(filename)) return
     
     console.group(`📄 Refresh Row: ${filename}`)
     
@@ -496,23 +499,22 @@ export default function App() {
       console.error(`❌ Row ${filename} failed:`, error)
       console.groupEnd()
       alert(`Refresh failed: ${error.message}`)
-      // Clear executing state on error
+      // Clear executing state and refreshing cells on error
       setExecutingRows((prev) => {
         const next = new Set(prev)
         next.delete(filename)
         return next
       })
-    } finally {
       const clearUpdates = {}
       columns.forEach((col) => {
         clearUpdates[`${filename}:${col.id}`] = false
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
     }
-  }, [currentProject, isExecuting, executingRows, projectData, post, selectedModel, startPolling])
+  }, [currentProject, executingRows, projectData, post, selectedModel, startPolling])
   
   const handleRefreshColumn = useCallback(async (columnId) => {
-    if (!currentProject || isExecuting || executingColumns.has(columnId)) return
+    if (!currentProject || executingColumns.has(columnId)) return
     
     console.group(`📊 Refresh Column: ${columnId}`)
     
@@ -537,21 +539,20 @@ export default function App() {
     } catch (error) {
       console.error(`❌ Column ${columnId} failed:`, error)
       console.groupEnd()
-      // Clear executing state on error
+      // Clear executing state and refreshing cells on error
       setExecutingColumns((prev) => {
         const next = new Set(prev)
         next.delete(columnId)
         return next
       })
-      alert(`Refresh failed: ${error.message}`)
-    } finally {
       const clearUpdates = {}
       documents.forEach((doc) => {
         clearUpdates[`${doc.name}:${columnId}`] = false
       })
       setRefreshingCells((prev) => ({ ...prev, ...clearUpdates }))
+      alert(`Refresh failed: ${error.message}`)
     }
-  }, [currentProject, isExecuting, executingColumns, projectData, post, selectedModel, startPolling])
+  }, [currentProject, executingColumns, projectData, post, selectedModel, startPolling])
   
   // Document opening
   const handleOpenDocument = useCallback(async (filename) => {
@@ -629,6 +630,14 @@ export default function App() {
     setIsChatCollapsed((prev) => !prev)
   }, [])
   
+  // API Key management
+  const handleApiKeyChange = useCallback((key) => {
+    // Update state
+    setCustomApiKey(key)
+    // Update global API context so all API calls use this key
+    setGlobalApiKey(key)
+  }, [])
+  
   // Loading state
   if (isLoading) {
     return (
@@ -691,6 +700,7 @@ export default function App() {
         selectedModel={selectedModel}
         executionMode={executionMode}
         isExecuting={isExecuting}
+        envKeyExists={envKeyExists}
         onChangeFolder={handleChangeFolder}
         onSelectProject={handleSelectProject}
         onCreateProject={handleCreateProject}
@@ -698,6 +708,7 @@ export default function App() {
         onChangeModel={handleChangeModel}
         onChangeExecutionMode={handleChangeExecutionMode}
         onExecute={handleExecuteAll}
+        onApiKeyChange={handleApiKeyChange}
       />
       
       <main style={styles.main}>
