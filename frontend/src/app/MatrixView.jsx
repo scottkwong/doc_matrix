@@ -449,6 +449,22 @@ export default function MatrixView({
     }
   }, [])
   
+  // Forward wheel events from row headers to main cells (vertical scroll)
+  const handleRowHeadersWheel = useCallback((e) => {
+    if (cellsRef.current) {
+      cellsRef.current.scrollTop += e.deltaY
+      cellsRef.current.scrollLeft += e.deltaX
+    }
+  }, [])
+  
+  // Forward wheel events from column headers to main cells (horizontal scroll)
+  const handleColumnHeadersWheel = useCallback((e) => {
+    if (cellsRef.current) {
+      cellsRef.current.scrollLeft += e.deltaX
+      cellsRef.current.scrollTop += e.deltaY
+    }
+  }, [])
+  
   // Corner resize handlers for first column width and first row height
   const handleCornerResizeStart = useCallback((e, direction) => {
     e.preventDefault()
@@ -711,6 +727,7 @@ export default function MatrixView({
         <div 
           style={styles.columnHeadersContainer}
           ref={columnHeadersRef}
+          onWheel={handleColumnHeadersWheel}
         >
           <div style={styles.columnHeadersScroll}>
             {columns.map((column, colIndex) => (
@@ -880,6 +897,7 @@ export default function MatrixView({
         <div 
           style={styles.rowHeadersContainer}
           ref={rowHeadersRef}
+          onWheel={handleRowHeadersWheel}
         >
           <div style={{ ...styles.rowHeadersScroll, gridTemplateRows }}>
             {documents.map((doc, rowIndex) => (
