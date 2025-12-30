@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { CitedText } from './citations/CitationIndicator'
+import Dialog from './Dialog'
 
 const styles = {
   panel: {
@@ -289,6 +290,7 @@ export default function ChatPanel({
   const [clearHovered, setClearHovered] = useState(false)
   const [sendHovered, setSendHovered] = useState(false)
   const [toggleHovered, setToggleHovered] = useState(false)
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
   
@@ -323,10 +325,19 @@ export default function ChatPanel({
   }, [handleSubmit])
   
   const handleClear = useCallback(() => {
-    if (messages.length > 0 && window.confirm('Clear chat history?')) {
-      onClearHistory()
+    if (messages.length > 0) {
+      setClearDialogOpen(true)
     }
-  }, [messages.length, onClearHistory])
+  }, [messages.length])
+  
+  const confirmClear = useCallback(() => {
+    onClearHistory()
+    setClearDialogOpen(false)
+  }, [onClearHistory])
+  
+  const cancelClear = useCallback(() => {
+    setClearDialogOpen(false)
+  }, [])
   
   const canSend = input.trim() && !isLoading && !disabled
   
@@ -457,6 +468,18 @@ export default function ChatPanel({
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      
+      {/* Clear confirmation dialog */}
+      <Dialog
+        isOpen={clearDialogOpen}
+        type="confirm"
+        title="Clear Chat History"
+        message="Are you sure you want to clear the entire chat history? This action cannot be undone."
+        onConfirm={confirmClear}
+        onClose={cancelClear}
+        confirmText="Clear"
+        cancelText="Cancel"
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import Dialog from './Dialog'
 
 const styles = {
   container: {
@@ -182,6 +183,8 @@ export default function ProjectSelector({
   const [newProjectName, setNewProjectName] = useState('')
   const [hoveredProject, setHoveredProject] = useState(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState(null)
   const containerRef = useRef(null)
   const inputRef = useRef(null)
   
@@ -224,12 +227,24 @@ export default function ProjectSelector({
     }
   }, [newProjectName, onCreateProject])
   
-  const handleDelete = useCallback(async (e, projectName) => {
+  const handleDelete = useCallback((e, projectName) => {
     e.stopPropagation()
-    if (window.confirm(`Delete project "${projectName}"? This cannot be undone.`)) {
-      await onDeleteProject(projectName)
+    setProjectToDelete(projectName)
+    setDeleteDialogOpen(true)
+  }, [])
+  
+  const confirmDelete = useCallback(async () => {
+    if (projectToDelete) {
+      await onDeleteProject(projectToDelete)
+      setProjectToDelete(null)
     }
-  }, [onDeleteProject])
+    setDeleteDialogOpen(false)
+  }, [projectToDelete, onDeleteProject])
+  
+  const cancelDelete = useCallback(() => {
+    setDeleteDialogOpen(false)
+    setProjectToDelete(null)
+  }, [])
   
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter') {
@@ -363,6 +378,18 @@ export default function ProjectSelector({
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      
+      {/* Delete confirmation dialog */}
+      <Dialog
+        isOpen={deleteDialogOpen}
+        type="confirm"
+        title="Delete Project"
+        message={`Are you sure you want to delete project "${projectToDelete}"? This action cannot be undone.`}
+        onConfirm={confirmDelete}
+        onClose={cancelDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   )
 }

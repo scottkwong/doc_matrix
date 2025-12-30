@@ -16,6 +16,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
+import Dialog from './Dialog'
 
 // Default dimensions for consistent sizing
 const DEFAULT_ROW_HEADER_WIDTH = 400  // Wide enough for full filenames
@@ -421,6 +422,17 @@ export default function MatrixView({
   const [draggedColumnId, setDraggedColumnId] = useState(null)
   const [dragOverColumnId, setDragOverColumnId] = useState(null)
   
+  // Dialog state
+  const [dialogState, setDialogState] = useState({
+    isOpen: false,
+    type: 'prompt',
+    title: '',
+    message: '',
+    onConfirm: null,
+    defaultValue: '',
+    columnId: null, // For column deletion
+  })
+  
   // Refs for synchronized scrolling
   const columnHeadersRef = useRef(null)
   const rowHeadersRef = useRef(null)
@@ -567,10 +579,23 @@ export default function MatrixView({
   }
 
   const handleAddColumn = () => {
-    const question = prompt('Enter the question:')
-    if (question && question.trim()) {
-      onAddColumn(question.trim())
-    }
+    setDialogState({
+      isOpen: true,
+      type: 'prompt',
+      title: 'Add Question',
+      message: 'Enter your question:',
+      defaultValue: '',
+      onConfirm: (value) => {
+        if (value && value.trim()) {
+          onAddColumn(value.trim())
+        }
+        setDialogState(prev => ({ ...prev, isOpen: false }))
+      },
+    })
+  }
+  
+  const handleCloseDialog = () => {
+    setDialogState(prev => ({ ...prev, isOpen: false }))
   }
 
   const handleDragStart = (e, columnId) => {
@@ -841,9 +866,17 @@ export default function MatrixView({
                             ...(hoveredAction === `delete-${column.id}` ? { ...styles.iconBtnHover, ...styles.iconBtnDanger } : {}),
                           }}
                           onClick={() => {
-                            if (window.confirm('Delete this question column?')) {
-                              onDeleteColumn(column.id)
-                            }
+                            setDialogState({
+                              isOpen: true,
+                              type: 'confirm',
+                              title: 'Delete Column',
+                              message: 'Are you sure you want to delete this question column? This action cannot be undone.',
+                              columnId: column.id,
+                              onConfirm: () => {
+                                onDeleteColumn(column.id)
+                                setDialogState(prev => ({ ...prev, isOpen: false }))
+                              },
+                            })
                           }}
                           onMouseEnter={() => setHoveredAction(`delete-${column.id}`)}
                           onMouseLeave={() => setHoveredAction(null)}
@@ -1085,6 +1118,19 @@ export default function MatrixView({
           </div>
         </div>
       </div>
+      
+      {/* Dialog for prompts and confirmations */}
+      <Dialog
+        isOpen={dialogState.isOpen}
+        type={dialogState.type}
+        title={dialogState.title}
+        message={dialogState.message}
+        defaultValue={dialogState.defaultValue}
+        onConfirm={dialogState.onConfirm}
+        onClose={handleCloseDialog}
+        confirmText={dialogState.type === 'confirm' ? 'Delete' : 'OK'}
+        cancelText="Cancel"
+      />
     </div>
   )
 }

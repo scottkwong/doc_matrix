@@ -29,6 +29,65 @@ AVAILABLE_MODELS: Dict[str, str] = {
 
 DEFAULT_MODEL = "gpt-5.2"
 
+# Document extraction methods and versions
+# Maps file extensions to their default extraction methods
+DEFAULT_EXTRACTION_METHODS: Dict[str, str] = {
+    "pdf": "pypdf2_basic",
+    "docx": "python_docx",
+    "xlsx": "openpyxl",
+    "txt": "plain_text",
+    "md": "plain_text",
+    "csv": "plain_text",
+    "json": "plain_text",
+}
+
+# Detailed extraction method configuration
+# Maps extension -> method_name -> {version, description}
+EXTRACTION_METHODS: Dict[str, Dict[str, Dict[str, str]]] = {
+    "pdf": {
+        "pypdf2_basic": {
+            "version": "1.0",
+            "description": "Basic PyPDF2 text extraction"
+        },
+    },
+    "docx": {
+        "python_docx": {
+            "version": "1.0",
+            "description": "Python-docx text extraction"
+        },
+    },
+    "xlsx": {
+        "openpyxl": {
+            "version": "1.0",
+            "description": "Openpyxl spreadsheet extraction"
+        },
+    },
+    "txt": {
+        "plain_text": {
+            "version": "1.0",
+            "description": "Plain text file reading"
+        },
+    },
+    "md": {
+        "plain_text": {
+            "version": "1.0",
+            "description": "Markdown text reading"
+        },
+    },
+    "csv": {
+        "plain_text": {
+            "version": "1.0",
+            "description": "CSV text reading"
+        },
+    },
+    "json": {
+        "plain_text": {
+            "version": "1.0",
+            "description": "JSON text reading"
+        },
+    },
+}
+
 
 @dataclass
 class AppConfig:
@@ -72,6 +131,14 @@ class AppConfig:
     doc_matrix_folder: str = ".doc_matrix"
     text_cache_folder: str = "text_cache"
     projects_folder: str = "projects"
+    
+    # Extraction configuration
+    extraction_methods: Dict[str, Dict[str, Dict[str, str]]] = field(
+        default_factory=lambda: EXTRACTION_METHODS.copy()
+    )
+    default_extraction_methods: Dict[str, str] = field(
+        default_factory=lambda: DEFAULT_EXTRACTION_METHODS.copy()
+    )
 
 
 # Default configuration instance
