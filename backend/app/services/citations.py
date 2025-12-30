@@ -7,6 +7,8 @@ citizen throughout the application.
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -14,6 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .documents import DocumentProcessor
 from ..schemas import StructuredAnswer, CitationRequest
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -278,6 +282,8 @@ IMPORTANT:
     ) -> ParsedResponse:
         """Parse LLM response and extract citations.
         
+        Handles both legacy [[cite:"text"]] format and accidental JSON responses.
+        
         Args:
             response_text: Raw response text from the LLM.
             source_file: Name of the source document.
@@ -285,6 +291,21 @@ IMPORTANT:
         Returns:
             ParsedResponse with text and resolved citations.
         """
+        # Check if response is JSON (handle case where LLM returns JSON unexpectedly)
+        stripped = response_text.strip()
+        if stripped.startswith('{') and stripped.endswith('}'):
+            try:
+                json_data = json.loads(stripped)
+                # Try to parse as structured answer
+                structured = StructuredAnswer(**json_data)
+                logger.info(
+                    "⚠️  Detected JSON in legacy parser, converting to structured"
+                )
+                return self.parse_structured_response(structured, source_file)
+            except (json.JSONDecodeError, ValueError, Exception) as e:
+                # Not valid structured JSON, fall through to legacy parsing
+                logger.debug(f"JSON detection failed: {e}, using legacy parsing")
+        
         citations: List[Citation] = []
         processed_text = response_text
         citation_counter = 1
