@@ -18,7 +18,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
 
 // Fixed dimensions for consistent sizing
-const ROW_HEADER_WIDTH = 220
+const ROW_HEADER_WIDTH = 280
 const HEADER_ROW_HEIGHT = 100
 const CELL_WIDTH = 250
 const CELL_HEIGHT = 120
@@ -100,7 +100,38 @@ const styles = {
     border: '1px solid var(--color-accent)',
     borderRadius: 'var(--radius-sm)',
     resize: 'vertical',
-    minHeight: '60px',
+    minHeight: '50px',
+  },
+  editContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-2)',
+    flex: 1,
+  },
+  editActions: {
+    display: 'flex',
+    gap: 'var(--space-1)',
+    justifyContent: 'flex-end',
+  },
+  editActionBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '24px',
+    height: '24px',
+    padding: '0',
+    border: 'none',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
+  },
+  editSaveBtn: {
+    background: 'var(--color-success)',
+    color: 'white',
+  },
+  editCancelBtn: {
+    background: 'var(--color-text-muted)',
+    color: 'white',
   },
   columnActions: {
     display: 'flex',
@@ -400,12 +431,18 @@ export default function MatrixView({
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
       handleSaveEdit()
     } else if (e.key === 'Escape') {
       setEditingColumn(null)
       setEditValue('')
     }
+  }
+  
+  const handleCancelEdit = () => {
+    setEditingColumn(null)
+    setEditValue('')
   }
 
   const handleAddColumn = () => {
@@ -582,14 +619,42 @@ export default function MatrixView({
                       </svg>
                     </div>
                     {editingColumn === column.id ? (
-                      <textarea
-                        style={styles.questionInput}
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        onBlur={handleSaveEdit}
-                        autoFocus
-                      />
+                      <div style={styles.editContainer}>
+                        <textarea
+                          style={styles.questionInput}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          autoFocus
+                        />
+                        <div style={styles.editActions}>
+                          <button
+                            style={{
+                              ...styles.editActionBtn,
+                              ...styles.editSaveBtn,
+                            }}
+                            onClick={handleSaveEdit}
+                            title="Save (Enter)"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </button>
+                          <button
+                            style={{
+                              ...styles.editActionBtn,
+                              ...styles.editCancelBtn,
+                            }}
+                            onClick={handleCancelEdit}
+                            title="Cancel (Esc)"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <span style={styles.questionText}>{column.question}</span>
                     )}
