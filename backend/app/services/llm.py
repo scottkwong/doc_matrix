@@ -465,8 +465,20 @@ class LLMService:
             
         except json.JSONDecodeError as e:
             logger.error(f"❌ Failed to parse JSON response: {e}")
-            logger.error(f"Raw content: {content[:200]}...")
-            raise ValueError(f"Invalid JSON response from LLM: {e}")
+            logger.error(f"Raw content: {content[:500] if content else '(empty)'}...")
+            
+            # Try to salvage the response by wrapping it
+            try:
+                # If the LLM returned plain text, wrap it as a valid response
+                fallback_answer = StructuredAnswer(
+                    answer=content if content else "No response from LLM",
+                    citations=[]
+                )
+                logger.warning(f"⚠️  Using fallback wrapped response")
+                return fallback_answer
+            except Exception:
+                # If even that fails, raise the original error
+                raise ValueError(f"Invalid JSON response from LLM: {e}")
         except Exception as e:
             logger.error(f"❌ Structured request failed: {e}")
             raise

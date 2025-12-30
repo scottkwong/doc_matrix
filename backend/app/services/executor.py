@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
@@ -332,18 +333,39 @@ class Executor:
             doc_data = self.doc_processor.get_document_text(filename)
             doc_text = doc_data.get("text", "")
             
-            # Query LLM with structured output
-            structured_answer = await self.llm_service.complete_with_document_structured(
-                document_text=doc_text,
-                question=column.question,
-                filename=filename,
-                model=model,
-            )
-            
-            # Parse citations using structured response
-            parsed = self.citation_parser.parse_structured_response(
-                structured_answer, filename
-            )
+            # Try structured output first
+            try:
+                logger.info(f"🔧 Attempting structured JSON response for {filename}")
+                structured_answer = await self.llm_service.complete_with_document_structured(
+                    document_text=doc_text,
+                    question=column.question,
+                    filename=filename,
+                    model=model,
+                )
+                
+                # Parse citations using structured response
+                parsed = self.citation_parser.parse_structured_response(
+                    structured_answer, filename
+                )
+                
+            except (ValueError, json.JSONDecodeError) as json_err:
+                # Fallback to legacy parsing if JSON fails
+                logger.warning(
+                    f"⚠️  Structured parsing failed for {filename}, "
+                    f"falling back to legacy parsing: {json_err}"
+                )
+                
+                response = await self.llm_service.complete_with_document(
+                    document_text=doc_text,
+                    question=column.question,
+                    filename=filename,
+                    model=model,
+                )
+                
+                # Parse citations using legacy method
+                parsed = self.citation_parser.parse_response(
+                    response.content, filename
+                )
             
             result = CellResult(
                 answer=parsed.text,
