@@ -242,6 +242,7 @@ class CitationParser:
             
             # Replace inline citation markers with numbered references
             # Look for [[cite:"exact text"]] or [[cite:'exact text']]
+            # Replace with: "exact text [N]" - cited text followed by marker
             import re
             # Escape special regex characters in the citation text
             escaped_text = re.escape(citation_req.text)
@@ -249,7 +250,7 @@ class CitationParser:
             pattern = rf'\[\[cite:["\']?{escaped_text}["\']?\]\]'
             processed_text = re.sub(
                 pattern, 
-                f"[{idx}]", 
+                f"{citation_req.text} [{idx}]",  # Include cited text + marker
                 processed_text,
                 count=1,  # Only replace first occurrence
                 flags=re.IGNORECASE
@@ -368,10 +369,11 @@ IMPORTANT:
             
             citations.append(citation)
             
-            # Replace the citation marker with a reference number
+            # Replace the citation marker with cited text + reference number
+            # [[cite:"text"]] becomes "text [N]"
             processed_text = processed_text.replace(
                 match.group(0),
-                f"[{citation_counter}]",
+                f"{quoted_text} [{citation_counter}]",
                 1
             )
             citation_counter += 1
@@ -421,9 +423,11 @@ IMPORTANT:
             
             citations.append(citation)
             
+            # Replace position marker with cited text + reference number
+            # [[cite:pos:N:M]] becomes "text [N]"
             processed_text = processed_text.replace(
                 match.group(0),
-                f"[{citation_counter}]",
+                f"{quoted_text} [{citation_counter}]",
                 1
             )
             citation_counter += 1
@@ -518,9 +522,11 @@ IMPORTANT:
                 )
             
             citations.append(citation)
+            # Replace multi-doc citation marker with cited text + reference number
+            # [[cite:filename:"text"]] becomes "text [N]"
             processed_text = processed_text.replace(
                 match.group(0),
-                f"[{citation_counter}]",
+                f"{quoted_text} [{citation_counter}]",
                 1
             )
             citation_counter += 1
