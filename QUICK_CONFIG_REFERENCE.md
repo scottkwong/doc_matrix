@@ -205,3 +205,4 @@ All these settings are structured to be exposed in a future settings UI:
 
 For now, edit the Python files directly. All changes are centralized and well-documented.
 
+

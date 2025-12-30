@@ -18,9 +18,9 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
 
 // Default dimensions for consistent sizing
-const DEFAULT_ROW_HEADER_WIDTH = 280
+const DEFAULT_ROW_HEADER_WIDTH = 350  // Wider to show full filenames
 const DEFAULT_HEADER_ROW_HEIGHT = 100
-const MIN_ROW_HEADER_WIDTH = 180
+const MIN_ROW_HEADER_WIDTH = 200
 const MIN_HEADER_ROW_HEIGHT = 60
 const CELL_WIDTH = 250
 const CELL_HEIGHT = 120
@@ -174,19 +174,21 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '24px',
-    height: '24px',
+    width: '28px',
+    height: '28px',
     padding: '0',
-    color: 'var(--color-text-muted)',
-    background: 'transparent',
-    border: 'none',
+    color: 'var(--color-text-secondary)',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-surface-border)',
     borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
     transition: 'all var(--transition-fast)',
+    flexShrink: 0,
   },
   iconBtnHover: {
-    color: 'var(--color-text-primary)',
-    background: 'var(--color-surface)',
+    color: 'var(--color-accent)',
+    background: 'var(--color-accent-subtle)',
+    borderColor: 'var(--color-accent)',
   },
   iconBtnDanger: {
     color: 'var(--color-error)',
@@ -243,20 +245,17 @@ const styles = {
     position: 'relative',
     flexShrink: 0,
     minHeight: '80px',
-    overflow: 'visible', // Ensure children aren't clipped
   },
   rowHeaderTop: {
     display: 'flex',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
     gap: 'var(--space-2)',
     width: '100%',
   },
   rowHeaderButtons: {
     display: 'flex',
-    gap: 'var(--space-1)',
+    gap: 'var(--space-2)',
     flexShrink: 0,
-    marginLeft: 'auto', // Push buttons to the right
   },
   rowHeaderContent: {
     display: 'flex',
@@ -264,7 +263,6 @@ const styles = {
     gap: 'var(--space-2)',
     flex: 1,
     minWidth: 0,
-    overflow: 'hidden', // Clip long filenames, not buttons
   },
   fileIcon: {
     flexShrink: 0,
@@ -919,10 +917,10 @@ export default function MatrixView({
                       onMouseLeave={() => setHoveredAction(null)}
                       title="Document info"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="1" />
-                        <circle cx="12" cy="5" r="1" />
-                        <circle cx="12" cy="19" r="1" />
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="12" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
                       </svg>
                     </button>
                     <button
@@ -937,8 +935,8 @@ export default function MatrixView({
                       title="Run this row"
                       disabled={executingRows.has(doc.name)}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                        <polygon points="5 3 19 12 5 21 5 3" />
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="6 4 20 12 6 20 6 4" />
                       </svg>
                     </button>
                   </div>

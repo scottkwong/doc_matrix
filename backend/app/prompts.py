@@ -172,3 +172,4 @@ PROMPT_REGISTRY: Dict[str, callable] = {
     "chat": ChatPrompts.get_chat_prompt,
 }
 
+
