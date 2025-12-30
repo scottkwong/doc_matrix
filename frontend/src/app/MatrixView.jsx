@@ -17,9 +17,11 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
 
-// Fixed dimensions for consistent sizing
-const ROW_HEADER_WIDTH = 280
-const HEADER_ROW_HEIGHT = 100
+// Default dimensions for consistent sizing
+const DEFAULT_ROW_HEADER_WIDTH = 280
+const DEFAULT_HEADER_ROW_HEIGHT = 100
+const MIN_ROW_HEADER_WIDTH = 180
+const MIN_HEADER_ROW_HEIGHT = 60
 const CELL_WIDTH = 250
 const CELL_HEIGHT = 120
 const GAP = 8
@@ -32,17 +34,15 @@ const styles = {
     overflow: 'hidden',
     padding: 'var(--space-4)',
   },
-  // 4-quadrant grid layout
+  // 4-quadrant grid layout (dimensions set dynamically via inline styles)
   matrixLayout: {
     flex: 1,
     display: 'grid',
-    gridTemplateColumns: `${ROW_HEADER_WIDTH}px 1fr`,
-    gridTemplateRows: `${HEADER_ROW_HEIGHT}px 1fr`,
     gap: `${GAP}px`,
     overflow: 'hidden',
     minHeight: 0,
   },
-  // Top-left corner (fixed)
+  // Top-left corner (fixed, with resize handles)
   corner: {
     gridColumn: 1,
     gridRow: 1,
@@ -55,6 +55,38 @@ const styles = {
     color: 'var(--color-text-muted)',
     fontSize: 'var(--text-sm)',
     boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)',
+    position: 'relative',
+    userSelect: 'none',
+  },
+  cornerResizeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '6px',
+    cursor: 'col-resize',
+    background: 'transparent',
+    zIndex: 10,
+  },
+  cornerResizeBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '6px',
+    cursor: 'row-resize',
+    background: 'transparent',
+    zIndex: 10,
+  },
+  cornerResizeCorner: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: '12px',
+    height: '12px',
+    cursor: 'nwse-resize',
+    background: 'transparent',
+    zIndex: 11,
   },
   // Column headers (scrolls horizontally only)
   columnHeadersContainer: {
@@ -211,17 +243,20 @@ const styles = {
     position: 'relative',
     flexShrink: 0,
     minHeight: '80px',
+    overflow: 'visible', // Ensure children aren't clipped
   },
   rowHeaderTop: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 'var(--space-2)',
+    width: '100%',
   },
   rowHeaderButtons: {
     display: 'flex',
     gap: 'var(--space-1)',
     flexShrink: 0,
+    marginLeft: 'auto', // Push buttons to the right
   },
   rowHeaderContent: {
     display: 'flex',
@@ -229,6 +264,7 @@ const styles = {
     gap: 'var(--space-2)',
     flex: 1,
     minWidth: 0,
+    overflow: 'hidden', // Clip long filenames, not buttons
   },
   fileIcon: {
     flexShrink: 0,
@@ -246,6 +282,7 @@ const styles = {
     transition: 'color var(--transition-fast)',
     wordWrap: 'break-word',
     overflowWrap: 'break-word',
+    lineHeight: 1.3,
   },
   fileNameHover: {
     color: 'var(--color-accent)',
@@ -387,9 +424,17 @@ export default function MatrixView({
   const rowHeadersRef = useRef(null)
   const cellsRef = useRef(null)
   
+  // Track dimensions for first row and first column (resizable)
+  const [rowHeaderWidth, setRowHeaderWidth] = useState(DEFAULT_ROW_HEADER_WIDTH)
+  const [headerRowHeight, setHeaderRowHeight] = useState(DEFAULT_HEADER_ROW_HEIGHT)
+  
   // Track column widths and row heights (shared between headers and cells)
   const [columnWidthsState, setColumnWidthsState] = useState({})
   const [rowHeightsState, setRowHeightsState] = useState({})
+  
+  // Resize state for corner handles
+  const [isResizingCorner, setIsResizingCorner] = useState(null) // 'right', 'bottom', 'corner'
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 })
 
   // Synchronized scrolling: when cells scroll, update headers
   const handleCellsScroll = useCallback((e) => {
@@ -402,13 +447,68 @@ export default function MatrixView({
     }
   }, [])
   
+  // Corner resize handlers for first column width and first row height
+  const handleCornerResizeStart = useCallback((e, direction) => {
+    e.preventDefault()
+    setIsResizingCorner(direction)
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: rowHeaderWidth,
+      height: headerRowHeight,
+    }
+  }, [rowHeaderWidth, headerRowHeight])
+  
+  const handleCornerResizeMove = useCallback((e) => {
+    if (!isResizingCorner) return
+    
+    const deltaX = e.clientX - resizeStartRef.current.x
+    const deltaY = e.clientY - resizeStartRef.current.y
+    
+    if (isResizingCorner === 'right' || isResizingCorner === 'corner') {
+      const newWidth = Math.max(MIN_ROW_HEADER_WIDTH, resizeStartRef.current.width + deltaX)
+      setRowHeaderWidth(newWidth)
+    }
+    if (isResizingCorner === 'bottom' || isResizingCorner === 'corner') {
+      const newHeight = Math.max(MIN_HEADER_ROW_HEIGHT, resizeStartRef.current.height + deltaY)
+      setHeaderRowHeight(newHeight)
+    }
+  }, [isResizingCorner])
+  
+  const handleCornerResizeEnd = useCallback(() => {
+    setIsResizingCorner(null)
+  }, [])
+  
+  // Attach/detach global mouse listeners for corner resize
+  useEffect(() => {
+    if (isResizingCorner) {
+      window.addEventListener('mousemove', handleCornerResizeMove)
+      window.addEventListener('mouseup', handleCornerResizeEnd)
+      return () => {
+        window.removeEventListener('mousemove', handleCornerResizeMove)
+        window.removeEventListener('mouseup', handleCornerResizeEnd)
+      }
+    }
+  }, [isResizingCorner, handleCornerResizeMove, handleCornerResizeEnd])
+  
   // Handle resize from cells
-  const handleCellResize = useCallback((rowIndex, columnId, width, height) => {
-    if (width && columnId) {
+  // Note: Cell content changes should only expand row height, never column width
+  // Column width changes only happen from manual resize handles
+  const handleCellResize = useCallback((rowIndex, columnId, width, height, isManualResize = false) => {
+    // Only allow column width changes from manual resize (not from content changes)
+    if (width && columnId && isManualResize) {
       setColumnWidthsState(prev => ({ ...prev, [columnId]: width }))
     }
+    // Row height can expand from content or manual resize
     if (height && rowIndex !== undefined) {
-      setRowHeightsState(prev => ({ ...prev, [rowIndex]: height }))
+      setRowHeightsState(prev => {
+        const currentHeight = prev[rowIndex] || CELL_HEIGHT
+        // Only expand, don't shrink (unless manual resize)
+        if (isManualResize || height > currentHeight) {
+          return { ...prev, [rowIndex]: height }
+        }
+        return prev
+      })
     }
   }, [])
 
@@ -580,10 +680,29 @@ export default function MatrixView({
 
   return (
     <div style={styles.container}>
-      <div style={styles.matrixLayout}>
-        {/* QUADRANT 1: Corner (fixed) */}
+      <div style={{
+        ...styles.matrixLayout,
+        gridTemplateColumns: `${rowHeaderWidth}px 1fr`,
+        gridTemplateRows: `${headerRowHeight}px 1fr`,
+      }}>
+        {/* QUADRANT 1: Corner (fixed, resizable) */}
         <div style={styles.corner}>
           Documents
+          {/* Resize handle: right edge (for column width) */}
+          <div 
+            style={styles.cornerResizeRight}
+            onMouseDown={(e) => handleCornerResizeStart(e, 'right')}
+          />
+          {/* Resize handle: bottom edge (for row height) */}
+          <div 
+            style={styles.cornerResizeBottom}
+            onMouseDown={(e) => handleCornerResizeStart(e, 'bottom')}
+          />
+          {/* Resize handle: corner (for both) */}
+          <div 
+            style={styles.cornerResizeCorner}
+            onMouseDown={(e) => handleCornerResizeStart(e, 'corner')}
+          />
         </div>
 
         {/* QUADRANT 2: Column Headers (scrolls horizontally with cells) */}
@@ -598,7 +717,7 @@ export default function MatrixView({
                 style={{
                   ...styles.columnHeader,
                   width: `${columnWidths[colIndex]}px`,
-                  height: `${HEADER_ROW_HEIGHT - GAP}px`,
+                  height: `${headerRowHeight - GAP}px`,
                   opacity: draggedColumnId === column.id ? 0.5 : 1,
                   borderLeft: dragOverColumnId === column.id ? '2px solid var(--color-accent)' : 'none',
                 }}
@@ -729,7 +848,7 @@ export default function MatrixView({
                 ...styles.columnHeader, 
                 ...styles.summaryColumnHeader,
                 width: `${columnWidthsState['summary'] || CELL_WIDTH}px`,
-                height: `${HEADER_ROW_HEIGHT - GAP}px`,
+                height: `${headerRowHeight - GAP}px`,
               }}
             >
               <span style={styles.questionText}>Document Summary</span>
@@ -739,7 +858,7 @@ export default function MatrixView({
             <button
               style={{
                 ...styles.addColumnBtn,
-                height: `${HEADER_ROW_HEIGHT - GAP}px`,
+                height: `${headerRowHeight - GAP}px`,
                 ...(addBtnHovered ? styles.addColumnBtnHover : {}),
               }}
               onClick={handleAddColumn}
@@ -903,7 +1022,7 @@ export default function MatrixView({
                     onRefresh={() => onRefreshCell(doc.name, column.id)}
                     onOpenDocument={onOpenDocument}
                     isRefreshing={refreshingCells[`${doc.name}:${column.id}`]}
-                    onManualResize={(width, height) => handleCellResize(rowIndex, column.id, width, height)}
+                    onManualResize={(width, height) => handleCellResize(rowIndex, column.id, width, height, true)}
                   />
                 ))}
                 
@@ -912,7 +1031,7 @@ export default function MatrixView({
                   result={rowSummaries[doc.name]}
                   isSummary
                   onOpenDocument={onOpenDocument}
-                  onManualResize={(width, height) => handleCellResize(rowIndex, 'summary', width, height)}
+                  onManualResize={(width, height) => handleCellResize(rowIndex, 'summary', width, height, true)}
                 />
                 
                 {/* Spacer for add column */}
@@ -928,7 +1047,7 @@ export default function MatrixView({
                   result={columnSummaries[column.id]}
                   isSummary
                   onOpenDocument={onOpenDocument}
-                  onManualResize={(width, height) => handleCellResize('summary', column.id, width, height)}
+                  onManualResize={(width, height) => handleCellResize('summary', column.id, width, height, true)}
                 />
               ))}
               
@@ -937,7 +1056,7 @@ export default function MatrixView({
                 result={overallSummary}
                 isOverall
                 onOpenDocument={onOpenDocument}
-                onManualResize={(width, height) => handleCellResize('summary', 'summary', width, height)}
+                onManualResize={(width, height) => handleCellResize('summary', 'summary', width, height, true)}
               />
               
               {/* Spacer for add column */}
