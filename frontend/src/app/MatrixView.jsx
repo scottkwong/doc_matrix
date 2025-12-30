@@ -2,12 +2,27 @@
  * Matrix View Component
  * 
  * Main document analysis matrix grid showing documents as rows,
- * questions as columns, and LLM answers in cells. Includes
- * summary rows and columns with coordinated resizing.
+ * questions as columns, and LLM answers in cells. Uses a 4-quadrant
+ * freeze panes layout for proper scrolling behavior.
+ * 
+ * Layout:
+ * +------------------+---------------------------+
+ * | Corner (fixed)   | Column Headers (h-scroll) |
+ * +------------------+---------------------------+
+ * | Row Headers      | Main Cells                |
+ * | (v-scroll)       | (both scroll)             |
+ * +------------------+---------------------------+
  */
 
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import MatrixCell from './MatrixCell'
+
+// Fixed dimensions for consistent sizing
+const ROW_HEADER_WIDTH = 220
+const HEADER_ROW_HEIGHT = 80
+const CELL_MIN_WIDTH = 200
+const CELL_MIN_HEIGHT = 80
+const GAP = 8
 
 const styles = {
   container: {
@@ -15,75 +30,53 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    position: 'relative',
-  },
-  scrollArea: {
-    flex: 1,
-    overflow: 'auto',
     padding: 'var(--space-4)',
-    position: 'relative',
   },
-  fadeOverlayTop: {
-    position: 'absolute',
-    // Cover the area just below the column headers where cells scroll under
-    top: 'calc(var(--space-4) + 60px)',  // Start within the header row area
-    left: 'calc(var(--space-4) + 240px)',  // After row header column + gap
-    right: 0,
-    height: '50px',
-    background: 'linear-gradient(to bottom, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.95) 20%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0) 100%)',
-    pointerEvents: 'none',
-    zIndex: 19,  // Below column headers (20) but above cells (1)
-  },
-  fadeOverlayLeft: {
-    position: 'absolute',
-    // Cover the area just to the right of row headers where cells scroll under
-    top: 'calc(var(--space-4) + 100px)',  // After header row + gap
-    left: 'calc(var(--space-4) + 180px)',  // Start within the row header area
-    bottom: 0,
-    width: '50px',
-    background: 'linear-gradient(to right, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.95) 20%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0) 100%)',
-    pointerEvents: 'none',
-    zIndex: 9,  // Below row headers (10) but above cells (1)
-  },
-  grid: {
+  // 4-quadrant grid layout
+  matrixLayout: {
+    flex: 1,
     display: 'grid',
-    gap: 'var(--space-2)',
-    minWidth: 'fit-content',
-    position: 'relative',
+    gridTemplateColumns: `${ROW_HEADER_WIDTH}px 1fr`,
+    gridTemplateRows: `${HEADER_ROW_HEIGHT}px 1fr`,
+    gap: `${GAP}px`,
+    overflow: 'hidden',
+    minHeight: 0,
   },
-  headerRow: {
-    display: 'contents',
-  },
-  cornerCell: {
-    position: 'sticky',
-    left: 0,
-    top: 0,
-    zIndex: 30,
+  // Top-left corner (fixed)
+  corner: {
+    gridColumn: 1,
+    gridRow: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 'var(--space-3)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
     fontWeight: '600',
     color: 'var(--color-text-muted)',
     fontSize: 'var(--text-sm)',
-    boxShadow: '4px 4px 8px rgba(0, 0, 0, 0.3)',
+    boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.1)',
+  },
+  // Column headers (scrolls horizontally only)
+  columnHeadersContainer: {
+    gridColumn: 2,
+    gridRow: 1,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  columnHeadersScroll: {
+    display: 'flex',
+    gap: `${GAP}px`,
+    minWidth: 'max-content',
   },
   columnHeader: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 20,
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
-    minWidth: '200px',
-    maxWidth: '300px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+    flexShrink: 0,
   },
   columnHeaderTop: {
     display: 'flex',
@@ -139,25 +132,53 @@ const styles = {
     opacity: 0.5,
     cursor: 'not-allowed',
   },
-  summaryHeader: {
+  summaryColumnHeader: {
     background: 'var(--color-bg-elevated)',
     borderLeft: '3px solid var(--color-accent)',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+  },
+  addColumnBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 'var(--space-2)',
+    padding: 'var(--space-3)',
+    minWidth: '160px',
+    fontSize: 'var(--text-sm)',
+    fontWeight: '500',
+    color: 'var(--color-accent)',
+    background: 'var(--color-surface)',
+    border: '2px dashed var(--color-surface-border)',
+    borderRadius: 'var(--radius-md)',
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
+    flexShrink: 0,
+  },
+  addColumnBtnHover: {
+    borderColor: 'var(--color-accent)',
+    background: 'var(--color-accent-subtle)',
+  },
+  // Row headers (scrolls vertically only)
+  rowHeadersContainer: {
+    gridColumn: 1,
+    gridRow: 2,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  rowHeadersScroll: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: `${GAP}px`,
   },
   rowHeader: {
-    position: 'sticky',
-    left: 0,
-    zIndex: 10,
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-2)',
     padding: 'var(--space-3)',
     background: 'var(--color-bg-secondary)',
     borderRadius: 'var(--radius-md)',
-    minWidth: '180px',
-    maxWidth: '220px',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
-    overflow: 'visible',
+    position: 'relative',
+    flexShrink: 0,
   },
   rowHeaderContent: {
     display: 'flex',
@@ -166,10 +187,36 @@ const styles = {
     flex: 1,
     minWidth: 0,
   },
+  fileIcon: {
+    flexShrink: 0,
+    width: '18px',
+    height: '18px',
+    color: 'var(--color-text-muted)',
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 'var(--text-sm)',
+    fontWeight: '500',
+    color: 'var(--color-text-primary)',
+    minWidth: 0,
+    cursor: 'pointer',
+    transition: 'color var(--transition-fast)',
+    wordWrap: 'break-word',
+    overflowWrap: 'break-word',
+  },
+  fileNameHover: {
+    color: 'var(--color-accent)',
+  },
+  summaryRowHeader: {
+    background: 'var(--color-bg-elevated)',
+    borderTop: '3px solid var(--color-accent)',
+    fontWeight: '600',
+    color: 'var(--color-accent)',
+  },
   docMenu: {
     position: 'absolute',
     top: '100%',
-    right: '48px',
+    left: 0,
     minWidth: '220px',
     background: 'var(--color-bg-elevated)',
     border: '1px solid var(--color-surface-border)',
@@ -204,7 +251,6 @@ const styles = {
     border: 'none',
     borderRadius: 'var(--radius-sm)',
     cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
   },
   docMenuCloseHover: {
     color: 'var(--color-text-primary)',
@@ -226,56 +272,17 @@ const styles = {
     fontWeight: '400',
     color: 'var(--color-text-primary)',
   },
-  fileIcon: {
-    flexShrink: 0,
-    width: '18px',
-    height: '18px',
-    color: 'var(--color-text-muted)',
+  // Main cells area (scrolls both ways)
+  cellsContainer: {
+    gridColumn: 2,
+    gridRow: 2,
+    overflow: 'auto',
+    position: 'relative',
   },
-  fileName: {
-    flex: 1,
-    fontSize: 'var(--text-sm)',
-    fontWeight: '500',
-    color: 'var(--color-text-primary)',
-    minWidth: 0,
-    cursor: 'pointer',
-    transition: 'color var(--transition-fast)',
-    wordWrap: 'break-word',
-    overflowWrap: 'break-word',
-  },
-  fileNameHover: {
-    color: 'var(--color-accent)',
-  },
-  summaryRowHeader: {
-    background: 'var(--color-bg-elevated)',
-    borderTop: '3px solid var(--color-accent)',
-    fontWeight: '600',
-    color: 'var(--color-accent)',
-    boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
-  },
-  addColumnBtn: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 20,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 'var(--space-2)',
-    padding: 'var(--space-3)',
-    minWidth: '160px',
-    fontSize: 'var(--text-sm)',
-    fontWeight: '500',
-    color: 'var(--color-accent)',
-    background: 'var(--color-surface)',
-    border: '2px dashed var(--color-surface-border)',
-    borderRadius: 'var(--radius-md)',
-    cursor: 'pointer',
-    transition: 'all var(--transition-fast)',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-  },
-  addColumnBtnHover: {
-    borderColor: 'var(--color-accent)',
-    background: 'var(--color-accent-subtle)',
+  cellsGrid: {
+    display: 'grid',
+    gap: `${GAP}px`,
+    minWidth: 'max-content',
   },
   emptyState: {
     display: 'flex',
@@ -315,224 +322,207 @@ export default function MatrixView({
   executingColumns = new Set(),
   executingRows = new Set(),
   isExecuting = false,
-  onAddColumn,
-  onUpdateColumn,
-  onDeleteColumn,
-  onReorderColumns,
   onRefreshCell,
   onRefreshRow,
   onRefreshColumn,
+  onAddColumn,
+  onEditColumn,
+  onDeleteColumn,
+  onReorderColumns,
   onOpenDocument,
 }) {
+  const [hoveredAction, setHoveredAction] = useState(null)
+  const [addBtnHovered, setAddBtnHovered] = useState(false)
+  const [openDocMenu, setOpenDocMenu] = useState(null)
   const [editingColumn, setEditingColumn] = useState(null)
   const [editValue, setEditValue] = useState('')
-  const [addBtnHovered, setAddBtnHovered] = useState(false)
-  const [hoveredAction, setHoveredAction] = useState(null)
   const [draggedColumnId, setDraggedColumnId] = useState(null)
   const [dragOverColumnId, setDragOverColumnId] = useState(null)
-  const [openDocMenu, setOpenDocMenu] = useState(null)
   
-  // Track manually set dimensions (null = auto-fit, number = locked)
-  const [columnWidths, setColumnWidths] = useState({})
+  // Refs for synchronized scrolling
+  const columnHeadersRef = useRef(null)
+  const rowHeadersRef = useRef(null)
+  const cellsRef = useRef(null)
+  
+  // Track actual row heights for synchronization
   const [rowHeights, setRowHeights] = useState({})
-  
-  // Track which dimensions are manually set (locked)
-  const [lockedColumns, setLockedColumns] = useState(new Set())
-  const [lockedRows, setLockedRows] = useState(new Set())
-  
+
+  // Synchronized scrolling: when cells scroll, update headers
+  const handleCellsScroll = useCallback((e) => {
+    const { scrollLeft, scrollTop } = e.target
+    if (columnHeadersRef.current) {
+      columnHeadersRef.current.scrollLeft = scrollLeft
+    }
+    if (rowHeadersRef.current) {
+      rowHeadersRef.current.scrollTop = scrollTop
+    }
+  }, [])
+
+  // Measure row heights from the cells container and apply to row headers
+  useEffect(() => {
+    if (!cellsRef.current) return
+    
+    const measureHeights = () => {
+      const cellsGrid = cellsRef.current?.querySelector('[data-cells-grid]')
+      if (!cellsGrid) return
+      
+      const rows = cellsGrid.children
+      const heights = {}
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        if (row.getBoundingClientRect) {
+          heights[i] = row.getBoundingClientRect().height
+        }
+      }
+      
+      setRowHeights(heights)
+    }
+    
+    // Measure after render
+    const timer = setTimeout(measureHeights, 100)
+    
+    // Re-measure on resize
+    const observer = new ResizeObserver(measureHeights)
+    if (cellsRef.current) {
+      observer.observe(cellsRef.current)
+    }
+    
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [documents, columns, results])
+
   const getCellResult = (filename, columnId) => {
-    const key = `${filename}:${columnId}`
-    return results[key]
+    return results[`${filename}:${columnId}`]
   }
-  
-  const handleStartEdit = useCallback((column) => {
+
+  const toggleDocMenu = useCallback((docName) => {
+    setOpenDocMenu(openDocMenu === docName ? null : docName)
+  }, [openDocMenu])
+
+  const handleStartEdit = (column) => {
     setEditingColumn(column.id)
     setEditValue(column.question)
-  }, [])
-  
-  const handleSaveEdit = useCallback(() => {
+  }
+
+  const handleSaveEdit = () => {
     if (editingColumn && editValue.trim()) {
-      onUpdateColumn(editingColumn, editValue.trim())
+      onEditColumn(editingColumn, editValue.trim())
     }
     setEditingColumn(null)
     setEditValue('')
-  }, [editingColumn, editValue, onUpdateColumn])
-  
-  const handleCancelEdit = useCallback(() => {
-    setEditingColumn(null)
-    setEditValue('')
-  }, [])
-  
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.shiftKey) {
       handleSaveEdit()
     } else if (e.key === 'Escape') {
-      handleCancelEdit()
-    }
-  }, [handleSaveEdit, handleCancelEdit])
-  
-  const handleAddColumn = useCallback(async () => {
-    console.log('➕ Adding new column...')
-    // Create a new column with empty question
-    const newColumn = await onAddColumn('') // Create with empty question
-    
-    if (newColumn) {
-      console.log('✅ New column created:', newColumn.id)
-      // Auto-start editing the new column
-      setEditingColumn(newColumn.id)
+      setEditingColumn(null)
       setEditValue('')
-    } else {
-      console.error('❌ Failed to create new column')
     }
-  }, [onAddColumn])
+  }
 
-  // Drag and drop for columns
-  const handleDragStart = useCallback((e, columnId) => {
+  const handleAddColumn = () => {
+    const question = prompt('Enter the question:')
+    if (question && question.trim()) {
+      onAddColumn(question.trim())
+    }
+  }
+
+  const handleDragStart = (e, columnId) => {
     setDraggedColumnId(columnId)
-    e.dataTransfer.setData('columnId', columnId)
     e.dataTransfer.effectAllowed = 'move'
-  }, [])
+  }
 
-  const handleDragOver = useCallback((e, columnId) => {
+  const handleDragOver = (e, columnId) => {
     e.preventDefault()
-    if (draggedColumnId === columnId) return
-    setDragOverColumnId(columnId)
-  }, [draggedColumnId])
-
-  const handleDrop = useCallback((e, targetId) => {
-    e.preventDefault()
-    const sourceId = e.dataTransfer.getData('columnId')
-    
-    if (sourceId === targetId) {
-      setDraggedColumnId(null)
-      setDragOverColumnId(null)
-      return
+    if (draggedColumnId && draggedColumnId !== columnId) {
+      setDragOverColumnId(columnId)
     }
+  }
 
-    const columnIds = columns.map(c => c.id)
-    const sourceIdx = columnIds.indexOf(sourceId)
-    const targetIdx = columnIds.indexOf(targetId)
-    
-    const newOrder = [...columnIds]
-    newOrder.splice(sourceIdx, 1)
-    newOrder.splice(targetIdx, 0, sourceId)
-    
-    onReorderColumns(newOrder)
+  const handleDrop = (e, targetColumnId) => {
+    e.preventDefault()
+    if (draggedColumnId && draggedColumnId !== targetColumnId) {
+      onReorderColumns(draggedColumnId, targetColumnId)
+    }
     setDraggedColumnId(null)
     setDragOverColumnId(null)
-  }, [columns, onReorderColumns])
+  }
 
-  const handleDragEnd = useCallback(() => {
+  const handleDragEnd = () => {
     setDraggedColumnId(null)
     setDragOverColumnId(null)
-  }, [])
-  
+  }
+
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown'
-    const date = new Date(timestamp * 1000) // Convert Unix timestamp to milliseconds
-    return date.toLocaleDateString(undefined, { 
-      month: 'short', 
-      day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
-    })
+    return new Date(timestamp * 1000).toLocaleDateString()
   }
-  
+
   const formatNumber = (num) => {
-    if (!num) return '0'
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-    return num.toString()
+    return num.toLocaleString()
   }
-  
-  const toggleDocMenu = useCallback((docName) => {
-    setOpenDocMenu((prev) => (prev === docName ? null : docName))
-  }, [])
-  
-  // Handle manual cell resize (drag) - locks the dimension
-  const handleManualResize = useCallback((rowIndex, columnId, newWidth, newHeight) => {
-    console.log('🔒 Manual resize:', { rowIndex, columnId, newWidth, newHeight })
-    
-    setColumnWidths(prev => ({
-      ...prev,
-      [columnId]: Math.max(newWidth, 200)
-    }))
-    setRowHeights(prev => ({
-      ...prev,
-      [rowIndex]: Math.max(newHeight, 80)
-    }))
-    
-    // Mark as manually locked
-    setLockedColumns(prev => new Set(prev).add(columnId))
-    setLockedRows(prev => new Set(prev).add(rowIndex))
-  }, [])
-  
-  // Release locks when content changes (e.g., after execution)
-  const releaseLocks = useCallback(() => {
-    setLockedColumns(new Set())
-    setLockedRows(new Set())
-    setColumnWidths({})
-    setRowHeights({})
-  }, [])
-  
-  // Release locks when results change (content updated)
-  useEffect(() => {
-    releaseLocks()
-  }, [results, rowSummaries, columnSummaries, releaseLocks])
-  
-  // Close doc menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (openDocMenu && !e.target.closest('[data-doc-menu]')) {
-        setOpenDocMenu(null)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [openDocMenu])
-  
+
   const getFileIcon = (filename) => {
-    const ext = filename.split('.').pop()?.toLowerCase()
-    const iconColor = {
-      pdf: '#ef4444',
-      docx: '#3b82f6',
-      xlsx: '#22c55e',
-      txt: '#94a3b8',
-      md: '#94a3b8',
-      csv: '#f59e0b',
-      json: '#a78bfa',
-    }[ext] || 'var(--color-text-muted)'
+    const ext = filename.split('.').pop().toLowerCase()
+    
+    if (['pdf'].includes(ext)) {
+      return (
+        <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M10 12h4" />
+          <path d="M10 16h2" />
+        </svg>
+      )
+    }
+    if (['doc', 'docx'].includes(ext)) {
+      return (
+        <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+      )
+    }
+    if (['xls', 'xlsx', 'csv'].includes(ext)) {
+      return (
+        <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M8 13h8" />
+          <path d="M8 17h8" />
+          <path d="M12 13v8" />
+        </svg>
+      )
+    }
     
     return (
-      <svg style={{ ...styles.fileIcon, color: iconColor }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
       </svg>
     )
   }
+
+  // Calculate column widths (same for headers and cells)
+  const columnWidths = useMemo(() => {
+    return columns.map(() => CELL_MIN_WIDTH)
+  }, [columns])
   
-  // Grid template columns: row header + question columns + summary column + add button
-  // Use locked widths if available, otherwise use default minmax
+  // Grid template for cells
   const gridTemplateColumns = useMemo(() => {
-    const rowHeaderWidth = '220px'
-    const addButtonWidth = '160px'
-    
-    // Build column widths for each question column
-    const questionColumnWidths = columns.map(col => {
-      if (lockedColumns.has(col.id) && columnWidths[col.id]) {
-        return `${columnWidths[col.id]}px`
-      }
-      return 'minmax(200px, 300px)'
-    }).join(' ')
-    
-    // Summary column width
-    const summaryColumnWidth = lockedColumns.has('summary') && columnWidths['summary']
-      ? `${columnWidths['summary']}px`
-      : 'minmax(200px, 300px)'
-    
-    return `${rowHeaderWidth} ${questionColumnWidths} ${summaryColumnWidth} ${addButtonWidth}`
-  }, [columns, columnWidths, lockedColumns])
-  
+    const colWidths = columnWidths.map(w => `${w}px`).join(' ')
+    return `${colWidths} ${CELL_MIN_WIDTH}px 160px` // + summary + add button space
+  }, [columnWidths])
+
+  // Total row count (documents + summary row)
+  const totalRows = documents.length + 1
+
   if (documents.length === 0) {
     return (
       <div style={styles.container}>
@@ -553,28 +543,28 @@ export default function MatrixView({
       </div>
     )
   }
-  
+
   return (
     <div style={styles.container}>
-      {/* Fade overlays to hide cells scrolling under headers */}
-      <div style={styles.fadeOverlayTop} />
-      <div style={styles.fadeOverlayLeft} />
-      
-      <div style={styles.scrollArea}>
-        <div style={{ ...styles.grid, gridTemplateColumns }}>
-          {/* Header row */}
-          <div style={styles.headerRow}>
-            {/* Corner cell */}
-            <div style={styles.cornerCell}>
-              Documents
-            </div>
-            
-            {/* Column headers (questions) */}
-            {columns.map((column) => (
+      <div style={styles.matrixLayout}>
+        {/* QUADRANT 1: Corner (fixed) */}
+        <div style={styles.corner}>
+          Documents
+        </div>
+
+        {/* QUADRANT 2: Column Headers (scrolls horizontally with cells) */}
+        <div 
+          style={styles.columnHeadersContainer}
+          ref={columnHeadersRef}
+        >
+          <div style={styles.columnHeadersScroll}>
+            {columns.map((column, colIndex) => (
               <div 
                 key={column.id} 
                 style={{
                   ...styles.columnHeader,
+                  width: `${columnWidths[colIndex]}px`,
+                  height: `${HEADER_ROW_HEIGHT - GAP}px`,
                   opacity: draggedColumnId === column.id ? 0.5 : 1,
                   borderLeft: dragOverColumnId === column.id ? '2px solid var(--color-accent)' : 'none',
                 }}
@@ -598,17 +588,17 @@ export default function MatrixView({
                       </svg>
                     </div>
                     {editingColumn === column.id ? (
-                    <textarea
-                      style={styles.questionInput}
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      onBlur={handleSaveEdit}
-                      autoFocus
-                    />
-                  ) : (
-                    <span style={styles.questionText}>{column.question}</span>
-                  )}
+                      <textarea
+                        style={styles.questionInput}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        onBlur={handleSaveEdit}
+                        autoFocus
+                      />
+                    ) : (
+                      <span style={styles.questionText}>{column.question}</span>
+                    )}
                   </div>
                   
                   <div style={styles.columnActions}>
@@ -672,7 +662,14 @@ export default function MatrixView({
             ))}
             
             {/* Summary column header */}
-            <div style={{ ...styles.columnHeader, ...styles.summaryHeader }}>
+            <div 
+              style={{
+                ...styles.columnHeader, 
+                ...styles.summaryColumnHeader,
+                width: `${CELL_MIN_WIDTH}px`,
+                height: `${HEADER_ROW_HEIGHT - GAP}px`,
+              }}
+            >
               <span style={styles.questionText}>Document Summary</span>
             </div>
             
@@ -680,6 +677,7 @@ export default function MatrixView({
             <button
               style={{
                 ...styles.addColumnBtn,
+                height: `${HEADER_ROW_HEIGHT - GAP}px`,
                 ...(addBtnHovered ? styles.addColumnBtnHover : {}),
               }}
               onClick={handleAddColumn}
@@ -693,17 +691,22 @@ export default function MatrixView({
               Add Question
             </button>
           </div>
-          
-          {/* Document rows */}
-          {documents.map((doc, rowIndex) => (
-            <div key={doc.name} style={{ display: 'contents' }}>
-              {/* Row header (document name) */}
+        </div>
+
+        {/* QUADRANT 3: Row Headers (scrolls vertically with cells) */}
+        <div 
+          style={styles.rowHeadersContainer}
+          ref={rowHeadersRef}
+        >
+          <div style={styles.rowHeadersScroll}>
+            {documents.map((doc, rowIndex) => (
               <div 
+                key={doc.name}
                 style={{
                   ...styles.rowHeader,
-                  zIndex: openDocMenu === doc.name ? 9999 : 10
-                }} 
-                data-doc-menu
+                  height: rowHeights[rowIndex] ? `${rowHeights[rowIndex]}px` : `${CELL_MIN_HEIGHT}px`,
+                  zIndex: openDocMenu === doc.name ? 1000 : 1,
+                }}
               >
                 <div style={styles.rowHeaderContent}>
                   {getFileIcon(doc.name)}
@@ -755,7 +758,7 @@ export default function MatrixView({
                 
                 {/* Document metadata menu */}
                 {openDocMenu === doc.name && (
-                  <div style={styles.docMenu} data-doc-menu>
+                  <div style={styles.docMenu}>
                     <div style={styles.docMenuHeader}>
                       <span style={styles.docMenuTitle}>Document Info</span>
                       <button
@@ -793,72 +796,84 @@ export default function MatrixView({
                   </div>
                 )}
               </div>
-              
-              {/* Data cells */}
-              {columns.map((column) => (
-                <MatrixCell
-                  key={`${doc.name}:${column.id}`}
-                  result={getCellResult(doc.name, column.id)}
-                  onRefresh={() => onRefreshCell(doc.name, column.id)}
-                  onOpenDocument={onOpenDocument}
-                  isRefreshing={refreshingCells[`${doc.name}:${column.id}`]}
-                  cellHeight={lockedRows.has(rowIndex) ? rowHeights[rowIndex] : null}
-                  onManualResize={(width, height) => handleManualResize(rowIndex, column.id, width, height)}
-                />
-              ))}
-              
-              {/* Row summary cell */}
-              <MatrixCell
-                result={rowSummaries[doc.name]}
-                isSummary
-                onOpenDocument={onOpenDocument}
-                cellHeight={lockedRows.has(rowIndex) ? rowHeights[rowIndex] : null}
-                onManualResize={(width, height) => handleManualResize(rowIndex, 'summary', width, height)}
-              />
-              
-              {/* Empty cell for add column space */}
-              <div />
-            </div>
-          ))}
-          
-          {/* Summary row */}
-          <div style={{ display: 'contents' }}>
+            ))}
+            
             {/* Summary row header */}
-            <div style={{ ...styles.rowHeader, ...styles.summaryRowHeader }}>
+            <div 
+              style={{
+                ...styles.rowHeader, 
+                ...styles.summaryRowHeader,
+                height: rowHeights[documents.length] ? `${rowHeights[documents.length]}px` : `${CELL_MIN_HEIGHT}px`,
+              }}
+            >
               <svg style={styles.fileIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
               <span>Question Summaries</span>
             </div>
-            
-            {/* Column summary cells */}
-            {columns.map((column) => (
-              <MatrixCell
-                key={`summary:${column.id}`}
-                result={columnSummaries[column.id]}
-                isSummary
-                onOpenDocument={onOpenDocument}
-                cellHeight={lockedRows.has('summary') ? rowHeights['summary'] : null}
-                onManualResize={(width, height) => handleManualResize('summary', column.id, width, height)}
-              />
+          </div>
+        </div>
+
+        {/* QUADRANT 4: Main Cells (scrolls both ways) */}
+        <div 
+          style={styles.cellsContainer}
+          ref={cellsRef}
+          onScroll={handleCellsScroll}
+        >
+          <div 
+            style={{ ...styles.cellsGrid, gridTemplateColumns }}
+            data-cells-grid
+          >
+            {/* Document rows */}
+            {documents.map((doc, rowIndex) => (
+              <div key={doc.name} style={{ display: 'contents' }}>
+                {columns.map((column, colIndex) => (
+                  <MatrixCell
+                    key={`${doc.name}:${column.id}`}
+                    result={getCellResult(doc.name, column.id)}
+                    onRefresh={() => onRefreshCell(doc.name, column.id)}
+                    onOpenDocument={onOpenDocument}
+                    isRefreshing={refreshingCells[`${doc.name}:${column.id}`]}
+                  />
+                ))}
+                
+                {/* Row summary cell */}
+                <MatrixCell
+                  result={rowSummaries[doc.name]}
+                  isSummary
+                  onOpenDocument={onOpenDocument}
+                />
+                
+                {/* Spacer for add column */}
+                <div style={{ width: '160px' }} />
+              </div>
             ))}
             
-            {/* Overall summary cell */}
-            <MatrixCell
-              result={overallSummary}
-              isOverall
-              onOpenDocument={onOpenDocument}
-              cellHeight={lockedRows.has('summary') ? rowHeights['summary'] : null}
-              onManualResize={(width, height) => handleManualResize('summary', 'summary', width, height)}
-            />
-            
-            {/* Empty cell for add column space */}
-            <div />
+            {/* Summary row */}
+            <div style={{ display: 'contents' }}>
+              {columns.map((column) => (
+                <MatrixCell
+                  key={`summary:${column.id}`}
+                  result={columnSummaries[column.id]}
+                  isSummary
+                  onOpenDocument={onOpenDocument}
+                />
+              ))}
+              
+              {/* Overall summary cell */}
+              <MatrixCell
+                result={overallSummary}
+                isOverall
+                onOpenDocument={onOpenDocument}
+              />
+              
+              {/* Spacer for add column */}
+              <div style={{ width: '160px' }} />
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
