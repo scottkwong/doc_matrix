@@ -15,14 +15,30 @@ import { useCallback } from 'react'
 export function useApi() {
   const apiCall = useCallback(async (endpoint, options = {}) => {
     const url = `/api${endpoint.startsWith('/') ? '' : '/'}${endpoint}`
+    const method = options.method || 'GET'
+    const startTime = performance.now()
+    
+    console.log(`📤 API Request: ${method} ${url}`)
+    
     try {
       const response = await fetch(url, options)
+      const elapsed = performance.now() - startTime
+      
       if (!response.ok) {
+        console.error(
+          `📥 API Error: ${response.status} ${response.statusText} (${elapsed.toFixed(0)}ms)`,
+          url
+        )
         throw new Error(`API error: ${response.status} ${response.statusText}`)
       }
-      return await response.json()
+      
+      const data = await response.json()
+      console.log(`📥 API Response: ${url} (${elapsed.toFixed(0)}ms)`)
+      
+      return data
     } catch (error) {
-      console.error(`API call failed: ${url}`, error)
+      const elapsed = performance.now() - startTime
+      console.error(`💥 API Failed: ${url} (${elapsed.toFixed(0)}ms)`, error)
       throw error
     }
   }, [])
