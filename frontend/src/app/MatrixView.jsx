@@ -21,11 +21,14 @@ const styles = {
     overflow: 'auto',
     padding: 'var(--space-4)',
     position: 'relative',
+    // Create stacking context for proper z-index behavior
+    isolation: 'isolate',
   },
   grid: {
     display: 'grid',
     gap: 'var(--space-2)',
     minWidth: 'fit-content',
+    position: 'relative',
   },
   headerRow: {
     display: 'contents',
@@ -45,6 +48,8 @@ const styles = {
     color: 'var(--color-text-muted)',
     fontSize: 'var(--text-sm)',
     boxShadow: '2px 2px 4px rgba(0, 0, 0, 0.05)',
+    // Ensure content doesn't overflow
+    overflow: 'hidden',
   },
   columnHeader: {
     position: 'sticky',
@@ -59,6 +64,8 @@ const styles = {
     minWidth: '200px',
     maxWidth: '300px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+    // Ensure cells don't render on top
+    clipPath: 'inset(0)',
   },
   columnHeaderTop: {
     display: 'flex',
@@ -132,6 +139,9 @@ const styles = {
     minWidth: '180px',
     maxWidth: '220px',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
+    // Ensure cells don't render on top
+    clipPath: 'inset(0)',
+    overflow: 'visible',
   },
   rowHeaderContent: {
     display: 'flex',
@@ -142,16 +152,47 @@ const styles = {
   },
   docMenu: {
     position: 'absolute',
-    bottom: 'calc(100% + 4px)',
-    right: 0,
+    top: '100%',
+    right: '48px',
     minWidth: '220px',
     background: 'var(--color-bg-elevated)',
     border: '1px solid var(--color-surface-border)',
     borderRadius: 'var(--radius-lg)',
     boxShadow: 'var(--shadow-xl)',
-    padding: 'var(--space-2)',
+    padding: 'var(--space-3)',
     zIndex: 1000,
-    animation: 'slideUp 0.15s ease',
+    marginTop: '4px',
+  },
+  docMenuHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-2)',
+    paddingBottom: 'var(--space-2)',
+    borderBottom: '1px solid var(--color-surface-border)',
+  },
+  docMenuTitle: {
+    fontSize: 'var(--text-sm)',
+    fontWeight: '600',
+    color: 'var(--color-text-primary)',
+  },
+  docMenuClose: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '20px',
+    height: '20px',
+    padding: '0',
+    color: 'var(--color-text-muted)',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 'var(--radius-sm)',
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
+  },
+  docMenuCloseHover: {
+    color: 'var(--color-text-primary)',
+    background: 'var(--color-surface)',
   },
   docMenuItem: {
     display: 'flex',
@@ -571,14 +612,14 @@ export default function MatrixView({
                         <button
                           style={{
                             ...styles.iconBtn,
-                            ...(hoveredAction === `run-${column.id}` && !executingColumns.has(column.id) && !isExecuting ? styles.iconBtnHover : {}),
-                            ...(executingColumns.has(column.id) || isExecuting ? styles.iconBtnDisabled : {}),
+                            ...(hoveredAction === `run-${column.id}` && !executingColumns.has(column.id) ? styles.iconBtnHover : {}),
+                            ...(executingColumns.has(column.id) ? styles.iconBtnDisabled : {}),
                           }}
                           onClick={() => onRefreshColumn(column.id)}
                           onMouseEnter={() => setHoveredAction(`run-${column.id}`)}
                           onMouseLeave={() => setHoveredAction(null)}
                           title="Run this column"
-                          disabled={executingColumns.has(column.id) || isExecuting}
+                          disabled={executingColumns.has(column.id)}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3" />
@@ -678,14 +719,14 @@ export default function MatrixView({
                 <button
                   style={{
                     ...styles.iconBtn,
-                    ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) && !isExecuting ? styles.iconBtnHover : {}),
-                    ...(executingRows.has(doc.name) || isExecuting ? styles.iconBtnDisabled : {}),
+                    ...(hoveredAction === `run-row-${doc.name}` && !executingRows.has(doc.name) ? styles.iconBtnHover : {}),
+                    ...(executingRows.has(doc.name) ? styles.iconBtnDisabled : {}),
                   }}
                   onClick={() => onRefreshRow(doc.name)}
                   onMouseEnter={() => setHoveredAction(`run-row-${doc.name}`)}
                   onMouseLeave={() => setHoveredAction(null)}
                   title="Run this row"
-                  disabled={executingRows.has(doc.name) || isExecuting}
+                  disabled={executingRows.has(doc.name)}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3" />
@@ -695,6 +736,24 @@ export default function MatrixView({
                 {/* Document metadata menu */}
                 {openDocMenu === doc.name && (
                   <div style={styles.docMenu} data-doc-menu>
+                    <div style={styles.docMenuHeader}>
+                      <span style={styles.docMenuTitle}>Document Info</span>
+                      <button
+                        style={{
+                          ...styles.docMenuClose,
+                          ...(hoveredAction === `close-menu-${doc.name}` ? styles.docMenuCloseHover : {}),
+                        }}
+                        onClick={() => setOpenDocMenu(null)}
+                        onMouseEnter={() => setHoveredAction(`close-menu-${doc.name}`)}
+                        onMouseLeave={() => setHoveredAction(null)}
+                        title="Close"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
                     <div style={styles.docMenuItem}>
                       <span style={styles.docMenuLabel}>Last Modified</span>
                       <span style={styles.docMenuValue}>{formatDate(doc.mtime)}</span>
