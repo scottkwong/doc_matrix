@@ -16,6 +16,12 @@ from typing import Any, Dict, List, Optional
 
 from .storage import StorageManager
 
+try:
+    import tiktoken
+    TIKTOKEN_AVAILABLE = True
+except ImportError:
+    TIKTOKEN_AVAILABLE = False
+
 
 class DocumentProcessor:
     """Extracts and caches text content from documents.
@@ -34,6 +40,14 @@ class DocumentProcessor:
             storage: Storage manager instance.
         """
         self.storage = storage
+        # Initialize tiktoken encoder for token counting (using cl100k_base for GPT-4 models)
+        if TIKTOKEN_AVAILABLE:
+            try:
+                self.encoder = tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                self.encoder = None
+        else:
+            self.encoder = None
     
     def get_document_text(
         self, 
@@ -72,6 +86,9 @@ class DocumentProcessor:
         result = extractor(doc_path)
         result["mtime"] = current_mtime
         result["filename"] = filename
+        
+        # Count tokens
+        result["token_count"] = self._count_tokens(result.get("text", ""))
         
         # Cache the result
         self.storage.write_json(cache_path, result)
@@ -340,6 +357,28 @@ class DocumentProcessor:
         # Replace multiple newlines with double newline
         text = re.sub(r"\n\s*\n", "\n\n", text)
         return text.strip()
+    
+    def _count_tokens(self, text: str) -> int:
+        """Count tokens in text using tiktoken.
+        
+        Args:
+            text: Text to count tokens for.
+            
+        Returns:
+            Number of tokens (or rough estimate if tiktoken unavailable).
+        """
+        if not text:
+            return 0
+        
+        if self.encoder:
+            try:
+                return len(self.encoder.encode(text))
+            except Exception:
+                # Fallback to rough estimate if encoding fails
+                return len(text) // 4
+        else:
+            # Rough estimate: ~4 characters per token
+            return len(text) // 4
     
     def find_text_location(
         self, 
