@@ -29,6 +29,8 @@ const styles = {
     gap: 'var(--space-2)',
     minWidth: 'fit-content',
     position: 'relative',
+    // Ensure cells are clipped when scrolling under sticky headers
+    clipPath: 'inset(0)',
   },
   headerRow: {
     display: 'contents',
@@ -64,8 +66,10 @@ const styles = {
     minWidth: '200px',
     maxWidth: '300px',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-    // Ensure cells don't render on top
-    clipPath: 'inset(0)',
+    // Ensure full coverage and proper rendering
+    contain: 'layout style paint',
+    // Solid background to cover scrolling cells
+    backgroundClip: 'padding-box',
   },
   columnHeaderTop: {
     display: 'flex',
@@ -139,9 +143,11 @@ const styles = {
     minWidth: '180px',
     maxWidth: '220px',
     boxShadow: '2px 0 4px rgba(0, 0, 0, 0.05)',
-    // Ensure cells don't render on top
-    clipPath: 'inset(0)',
+    // Allow doc menu to overflow, but contain the header itself
     overflow: 'visible',
+    contain: 'layout style paint',
+    // Solid background to cover scrolling cells
+    backgroundClip: 'padding-box',
   },
   rowHeaderContent: {
     display: 'flex',

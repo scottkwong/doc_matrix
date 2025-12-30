@@ -23,6 +23,8 @@ const styles = {
     transition: 'border-color var(--transition-fast)',
     overflow: 'auto',
     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+    // Ensure cells stay below sticky headers
+    zIndex: 1,
   },
   cellResizable: {
     cursor: 'default',
